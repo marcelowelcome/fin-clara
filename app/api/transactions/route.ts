@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 type TransactionsResult = {
   transactions: Record<string, unknown>[]
   total: number

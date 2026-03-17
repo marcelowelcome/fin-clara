@@ -9,6 +9,8 @@ import {
   type ReconciliationStatus,
 } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 // PATCH — single transaction reconciliation
 export async function PATCH(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {

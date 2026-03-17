@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { detectRecurrencePatterns } from '@/lib/recurrence'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 // POST — trigger recurrence detection
 export async function POST(): Promise<NextResponse<ApiResponse<{ patternsCreated: number; transactionsMarked: number }>>> {
   try {

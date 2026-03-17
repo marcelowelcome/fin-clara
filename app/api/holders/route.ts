@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { HolderFormSchema, type ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 // GET — list all holders
 export async function GET(): Promise<NextResponse<ApiResponse<unknown[]>>> {
   try {

@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getKPIs, getSpendByCategory, getSpendByHolder, getBillingPeriods } from '@/lib/metrics'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   try {
     const supabase = await createServerSupabaseClient()

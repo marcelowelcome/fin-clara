@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getHolderPendencies, sendNotification } from '@/lib/notify'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 // POST — send notifications
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ sent: number; failed: number }>>> {
   try {

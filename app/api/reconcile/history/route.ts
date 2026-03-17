@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<unknown[]>>> {
   try {
     const supabase = await createServerSupabaseClient()

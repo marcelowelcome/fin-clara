@@ -4,6 +4,8 @@ import { parseCSV } from '@/lib/csv-parser'
 import { dedup } from '@/lib/dedup'
 import type { ApiResponse } from '@/lib/schemas'
 
+export const dynamic = 'force-dynamic'
+
 type UploadResult = {
   uploadId: string
   inserted: number
