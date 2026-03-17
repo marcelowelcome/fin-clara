@@ -1,0 +1,38 @@
+# .cursorrules — Clara Card Manager
+# Este arquivo é lido automaticamente pelo Cursor e Windsurf em cada sessão.
+# É um alias do AGENT_INSTRUCTIONS.md — mantenha os dois sincronizados.
+
+## Projeto
+Clara Card Manager — gestão e conciliação de cartão corporativo Clara (Welcome Weddings).
+Stack: Next.js 14 · TypeScript · Tailwind · Supabase · Vercel.
+Leia ARCHITECTURE.md antes de qualquer tarefa.
+
+## Regras obrigatórias
+
+1. LEIA ARCHITECTURE.md antes de criar ou editar qualquer arquivo.
+2. Um módulo, uma responsabilidade. Não vazar lógica entre módulos.
+3. Todos os tipos em lib/schemas.ts. Nunca declarar tipos inline.
+4. Supabase apenas via lib/supabase.ts (client) ou lib/supabase-server.ts (server).
+5. Upload nunca sobrescreve registros — dedup via lib/dedup.ts é obrigatória.
+6. Toda mudança de status de conciliação gera registro em reconciliation_log.
+7. RLS filtra por titular no banco — não substituir por WHERE no código.
+8. Datas e valores sempre em pt-BR na UI. Datas ISO e NUMERIC no banco.
+9. API routes retornam { data, error } — try/catch em todas.
+10. Commits por módulo: feat(M1):, fix(M3):, etc.
+
+## Checklist antes de entregar
+- Arquivo no diretório correto (ver ARCHITECTURE.md)?
+- Tipos em lib/schemas.ts?
+- Lógica de negócio em lib/?
+- Supabase importado de lib/supabase.ts?
+- Dedup preservada se tocou no upload?
+- Log gerado se tocou em status de conciliação?
+- Formatação pt-BR na UI?
+- API retorna { data, error }?
+- Nenhuma chave hardcoded?
+
+## Contexto de negócio
+- CSV da Clara em ISO-8859-1. Campos: transaction_date, billing_period, merchant_name, amount_brl, card_alias, status, auth_code, category, holder_name.
+- Dedup: UNIQUE(transaction_date, auth_code, amount_brl) para autorizadas; UNIQUE(transaction_date, merchant_name, amount_brl, status) para sem auth_code.
+- Status de conciliação: Pendente | Conciliado | N/A | Recorrente.
+- Perfis: admin (acesso total) | holder (só vê o próprio card_alias).
