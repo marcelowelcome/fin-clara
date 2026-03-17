@@ -1,0 +1,17 @@
+-- ============================================================================
+-- Clara Card Manager — Seed Data (development only)
+-- ============================================================================
+-- Note: Run this after creating users in Supabase Auth dashboard.
+-- The trigger will auto-create profiles with role 'holder'.
+-- Then update the admin user's profile manually:
+--
+--   UPDATE profiles SET role = 'admin' WHERE id = '<admin-user-uuid>';
+--
+-- And create holder records:
+--
+--   INSERT INTO holders (name, card_alias, card_last4, email, user_id)
+--   VALUES
+--     ('Marcelo Aveiro', 'Marcelo Aveiro', '1234', 'marcelo@welcomeweddings.com.br', '<holder-user-uuid>'),
+--     ('Ana Silva', 'Ana Silva', '5678', 'ana@welcomeweddings.com.br', '<holder-user-uuid>');
+--
+-- Replace UUIDs with actual auth.users IDs after signup.
