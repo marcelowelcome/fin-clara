@@ -129,6 +129,30 @@ export async function getSpendByHolder(
   return Array.from(map.values()).sort((a, b) => b.total - a.total)
 }
 
+export type MonthlySpend = {
+  period: string
+  total: number
+}
+
+export async function getMonthlySpend(supabase: SupabaseClient): Promise<MonthlySpend[]> {
+  const { data } = await supabase
+    .from('transactions')
+    .select('billing_period, amount_brl')
+    .eq('status', 'Autorizada')
+
+  if (!data) return []
+
+  const map = new Map<string, number>()
+  for (const t of data) {
+    const period = t.billing_period || 'Sem fatura'
+    map.set(period, (map.get(period) || 0) + Number(t.amount_brl))
+  }
+
+  return Array.from(map.entries())
+    .map(([period, total]) => ({ period, total }))
+    .sort((a, b) => a.period.localeCompare(b.period))
+}
+
 export async function getBillingPeriods(supabase: SupabaseClient): Promise<string[]> {
   const { data } = await supabase
     .from('transactions')

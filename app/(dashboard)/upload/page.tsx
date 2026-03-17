@@ -18,7 +18,7 @@ export default function UploadPage() {
   const [result, setResult] = useState<UploadResult | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  async function handleFileSelected(file: File) {
+  async function handleConfirmUpload(file: File) {
     setLoading(true)
     setResult(null)
 
@@ -59,7 +59,7 @@ export default function UploadPage() {
         </p>
       </div>
 
-      <UploadZone onFileSelected={handleFileSelected} disabled={loading} />
+      <UploadZone onConfirm={handleConfirmUpload} disabled={loading} />
 
       {loading && (
         <p className="text-sm text-muted-foreground">Processando arquivo...</p>

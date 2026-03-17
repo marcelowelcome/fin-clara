@@ -11,13 +11,17 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { KpiCards } from '@/components/Dashboard/KpiCards'
 import { HolderTable } from '@/components/Dashboard/HolderTable'
-import type { KPIs, HolderSpend } from '@/lib/metrics'
+import { InvoiceChart } from '@/components/Dashboard/InvoiceChart'
+import { MonthlyChart } from '@/components/Dashboard/MonthlyChart'
+import type { KPIs, HolderSpend, CategorySpend, MonthlySpend } from '@/lib/metrics'
 
 export default function DashboardPage() {
   const [billingPeriods, setBillingPeriods] = useState<string[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<string>('')
   const [kpis, setKpis] = useState<KPIs | null>(null)
   const [holderData, setHolderData] = useState<HolderSpend[]>([])
+  const [categoryData, setCategoryData] = useState<CategorySpend[]>([])
+  const [monthlyData, setMonthlyData] = useState<MonthlySpend[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async (period: string) => {
@@ -30,6 +34,8 @@ export default function DashboardPage() {
       if (json.data) {
         setKpis(json.data.kpis)
         setHolderData(json.data.holderSpend)
+        setCategoryData(json.data.categorySpend || [])
+        setMonthlyData(json.data.monthlySpend || [])
         if (json.data.billingPeriods) {
           setBillingPeriods(json.data.billingPeriods)
         }
@@ -85,6 +91,12 @@ export default function DashboardPage() {
       ) : (
         <>
           {kpis && <KpiCards kpis={kpis} />}
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <MonthlyChart data={monthlyData} />
+            <InvoiceChart data={categoryData} />
+          </div>
+
           <HolderTable data={holderData} />
         </>
       )}

@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Transacoes', shortLabel: 'T', href: '/transactions' },
   { label: 'Upload CSV', shortLabel: 'U', href: '/upload', adminOnly: true },
   { label: 'Titulares', shortLabel: 'Ti', href: '/holders', adminOnly: true },
+  { label: 'Recorrencias', shortLabel: 'R', href: '/recurrence', adminOnly: true },
   { label: 'Usuarios', shortLabel: 'Us', href: '/users', adminOnly: true },
 ]
 
