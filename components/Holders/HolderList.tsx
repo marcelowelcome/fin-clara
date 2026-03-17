@@ -17,10 +17,11 @@ import type { Holder } from '@/lib/schemas'
 
 type HolderListProps = {
   onEdit: (holder: Holder) => void
+  onNotify?: (holderId: string, holderName: string) => void
   refreshKey: number
 }
 
-export function HolderList({ onEdit, refreshKey }: HolderListProps) {
+export function HolderList({ onEdit, onNotify, refreshKey }: HolderListProps) {
   const [holders, setHolders] = useState<Holder[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -68,6 +69,7 @@ export function HolderList({ onEdit, refreshKey }: HolderListProps) {
             <TableHead>Alias do Cartao</TableHead>
             <TableHead>Ultimos 4</TableHead>
             <TableHead>E-mail</TableHead>
+            <TableHead>Login vinculado</TableHead>
             <TableHead>Notificacao</TableHead>
             <TableHead>Frequencia</TableHead>
             <TableHead className="w-24"></TableHead>
@@ -80,6 +82,9 @@ export function HolderList({ onEdit, refreshKey }: HolderListProps) {
               <TableCell>{h.card_alias}</TableCell>
               <TableCell>****{h.card_last4}</TableCell>
               <TableCell>{h.email}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {h.user_id ? 'Vinculado' : '—'}
+              </TableCell>
               <TableCell>
                 <Badge variant={h.notify_enabled ? 'default' : 'secondary'}>
                   {h.notify_enabled ? 'Ativa' : 'Desativada'}
@@ -90,6 +95,11 @@ export function HolderList({ onEdit, refreshKey }: HolderListProps) {
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">
+                  {h.notify_enabled && onNotify && (
+                    <Button variant="ghost" size="sm" onClick={() => onNotify(h.id, h.name)}>
+                      Notificar
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => onEdit(h)}>
                     Editar
                   </Button>

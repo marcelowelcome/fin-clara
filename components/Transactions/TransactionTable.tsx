@@ -60,6 +60,31 @@ async function quickReconcile(
   return true
 }
 
+function exportToCsv(rows: TransactionRow[]) {
+  const header = 'Data,Estabelecimento,Categoria,Valor,Titular,Conciliacao\n'
+  const body = rows
+    .map((t) => {
+      const recon = t.reconciliation?.status ?? ''
+      return [
+        t.transaction_date,
+        `"${t.merchant_name.replace(/"/g, '""')}"`,
+        `"${(t.category || '').replace(/"/g, '""')}"`,
+        t.amount_brl.toFixed(2).replace('.', ','),
+        `"${t.holder_name.replace(/"/g, '""')}"`,
+        recon,
+      ].join(',')
+    })
+    .join('\n')
+
+  const blob = new Blob(['\uFEFF' + header + body], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `transacoes-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function TransactionTable() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -68,6 +93,7 @@ export function TransactionTable() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = 50
@@ -113,6 +139,25 @@ export function TransactionTable() {
       setSelected(new Set())
     } else {
       setSelected(new Set(transactions.map((t) => t.id)))
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('limit', '10000')
+      params.delete('page')
+      const res = await fetch(`/api/transactions?${params}`)
+      const json = await res.json()
+      if (json.data?.transactions) {
+        exportToCsv(json.data.transactions)
+        toast.success(`${json.data.transactions.length} transacoes exportadas`)
+      }
+    } catch {
+      toast.error('Erro ao exportar')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -237,11 +282,21 @@ export function TransactionTable() {
         </Table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination + Export */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total} transacao(es) — Pagina {page} de {totalPages || 1}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {total} transacao(es) — Pagina {page} de {totalPages || 1}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting || total === 0}
+            onClick={handleExport}
+          >
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"

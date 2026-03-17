@@ -29,6 +29,8 @@ type HolderFormProps = {
   onSaved: () => void
 }
 
+type UserOption = { id: string; email: string }
+
 export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) {
   const [name, setName] = useState('')
   const [cardAlias, setCardAlias] = useState('')
@@ -36,9 +38,22 @@ export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) 
   const [email, setEmail] = useState('')
   const [notifyEnabled, setNotifyEnabled] = useState(true)
   const [notifyFrequency, setNotifyFrequency] = useState<NotifyFrequency>('weekly')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [users, setUsers] = useState<UserOption[]>([])
   const [loading, setLoading] = useState(false)
 
   const isEditing = !!holder
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/users')
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.data) setUsers(json.data.map((u: UserOption) => ({ id: u.id, email: u.email })))
+        })
+        .catch(() => {})
+    }
+  }, [open])
 
   useEffect(() => {
     if (holder) {
@@ -48,6 +63,7 @@ export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) 
       setEmail(holder.email)
       setNotifyEnabled(holder.notify_enabled)
       setNotifyFrequency(holder.notify_frequency)
+      setUserId(holder.user_id)
     } else {
       setName('')
       setCardAlias('')
@@ -55,6 +71,7 @@ export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) 
       setEmail('')
       setNotifyEnabled(true)
       setNotifyFrequency('weekly')
+      setUserId(null)
     }
   }, [holder])
 
@@ -70,6 +87,7 @@ export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) 
       email,
       notify_enabled: notifyEnabled,
       notify_frequency: notifyFrequency,
+      user_id: userId,
     }
 
     try {
@@ -135,6 +153,26 @@ export function HolderForm({ holder, open, onClose, onSaved }: HolderFormProps) 
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Vincular a usuario</Label>
+            <Select
+              value={userId || '__none__'}
+              onValueChange={(v) => setUserId(v === '__none__' ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem vinculo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Sem vinculo</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Vincula este titular a um login do sistema para acesso individual
+            </p>
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="notify">Notificacao ativa</Label>
