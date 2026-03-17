@@ -66,87 +66,106 @@ export async function detectRecurrencePatterns(
     }
   })
 
-  // Fetch existing patterns to avoid duplicates
+  // Fetch existing patterns to avoid duplicates (single query)
   const { data: existingPatterns } = await supabase
     .from('recurrence_patterns')
-    .select('merchant_pattern')
+    .select('id, merchant_pattern')
 
-  const existingSet = new Set(
-    (existingPatterns || []).map((p) => p.merchant_pattern)
+  const existingMap = new Map(
+    (existingPatterns || []).map((p) => [p.merchant_pattern, p.id])
   )
 
+  // Separate new vs existing patterns
+  const newPatterns = patterns.filter((p) => !existingMap.has(p.merchant_pattern))
+
+  // Batch insert new patterns
   let patternsCreated = 0
-  let transactionsMarked = 0
-
-  for (const pattern of patterns) {
-    // Create pattern if new
-    let patternId: string | null = null
-
-    if (!existingSet.has(pattern.merchant_pattern)) {
-      const { data: created } = await supabase
-        .from('recurrence_patterns')
-        .insert({
-          merchant_pattern: pattern.merchant_pattern,
-          avg_amount: pattern.avg_amount,
+  if (newPatterns.length > 0) {
+    const { data: created } = await supabase
+      .from('recurrence_patterns')
+      .insert(
+        newPatterns.map((p) => ({
+          merchant_pattern: p.merchant_pattern,
+          avg_amount: p.avg_amount,
           tolerance_pct: 5,
           created_by: userId,
-        })
-        .select('id')
-        .single()
+        }))
+      )
+      .select('id, merchant_pattern')
 
-      if (created) {
-        patternId = created.id
-        patternsCreated++
-      }
-    } else {
-      // Get existing pattern ID
-      const { data: existing } = await supabase
-        .from('recurrence_patterns')
-        .select('id')
-        .eq('merchant_pattern', pattern.merchant_pattern)
-        .single()
-      patternId = existing?.id || null
-    }
-
-    if (!patternId) continue
-
-    // Mark pending reconciliations as Recorrente
-    for (const txId of pattern.transaction_ids) {
-      const { data: recon } = await supabase
-        .from('reconciliations')
-        .select('id, status')
-        .eq('transaction_id', txId)
-        .single()
-
-      if (recon && recon.status === 'Pendente') {
-        await supabase
-          .from('reconciliations')
-          .update({
-            status: 'Recorrente',
-            is_recurring: true,
-            recurrence_pattern_id: patternId,
-            reconciled_by: userId,
-            reconciled_at: new Date().toISOString(),
-          })
-          .eq('id', recon.id)
-
-        // Log the change
-        await supabase
-          .from('reconciliation_log')
-          .insert({
-            transaction_id: txId,
-            old_status: 'Pendente',
-            new_status: 'Recorrente',
-            changed_by: userId,
-            note: `Detectado automaticamente como recorrente: ${pattern.merchant_pattern}`,
-          })
-
-        transactionsMarked++
+    if (created) {
+      patternsCreated = created.length
+      for (const c of created) {
+        existingMap.set(c.merchant_pattern, c.id)
       }
     }
   }
 
-  return { patternsCreated, transactionsMarked }
+  // Collect all transaction IDs that need marking
+  const allTxIds: string[] = []
+  const txPatternMap = new Map<string, string>() // txId -> patternId
+  const txPatternName = new Map<string, string>() // txId -> merchant_pattern
+
+  for (const pattern of patterns) {
+    const patternId = existingMap.get(pattern.merchant_pattern)
+    if (!patternId) continue
+    for (const txId of pattern.transaction_ids) {
+      allTxIds.push(txId)
+      txPatternMap.set(txId, patternId)
+      txPatternName.set(txId, pattern.merchant_pattern)
+    }
+  }
+
+  // Batch fetch all reconciliations for these transactions (single query)
+  const { data: allRecons } = await supabase
+    .from('reconciliations')
+    .select('id, transaction_id, status')
+    .in('transaction_id', allTxIds)
+    .eq('status', 'Pendente')
+
+  if (!allRecons || allRecons.length === 0) {
+    return { patternsCreated, transactionsMarked: 0 }
+  }
+
+  // Batch update reconciliations
+  const reconIds = allRecons.map((r) => r.id)
+  const now = new Date().toISOString()
+
+  await supabase
+    .from('reconciliations')
+    .update({
+      status: 'Recorrente',
+      is_recurring: true,
+      reconciled_by: userId,
+      reconciled_at: now,
+    })
+    .in('id', reconIds)
+
+  // Batch insert logs
+  const logs = allRecons.map((r) => ({
+    transaction_id: r.transaction_id,
+    old_status: 'Pendente',
+    new_status: 'Recorrente',
+    changed_by: userId,
+    note: `Detectado automaticamente como recorrente: ${txPatternName.get(r.transaction_id) || ''}`,
+  }))
+
+  if (logs.length > 0) {
+    await supabase.from('reconciliation_log').insert(logs)
+  }
+
+  // Update recurrence_pattern_id individually (different per pattern)
+  for (const recon of allRecons) {
+    const patternId = txPatternMap.get(recon.transaction_id)
+    if (patternId) {
+      await supabase
+        .from('reconciliations')
+        .update({ recurrence_pattern_id: patternId })
+        .eq('id', recon.id)
+    }
+  }
+
+  return { patternsCreated, transactionsMarked: allRecons.length }
 }
 
 function normalizeMerchant(name: string): string {

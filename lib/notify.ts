@@ -38,28 +38,37 @@ export async function getHolderPendencies(
 
   if (!holders || holders.length === 0) return []
 
-  const notifications: HolderNotification[] = []
+  // Fetch ALL pending transactions for all holders in ONE query
+  const cardAliases = holders.map((h) => h.card_alias)
+  const { data: allTransactions } = await supabase
+    .from('transactions')
+    .select(`
+      transaction_date,
+      merchant_name,
+      amount_brl,
+      card_alias,
+      reconciliation:reconciliations!inner(status)
+    `)
+    .in('card_alias', cardAliases)
+    .eq('reconciliation.status', 'Pendente')
+    .order('transaction_date', { ascending: false })
 
-  for (const holder of holders) {
-    // Get pending transactions for this holder
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select(`
-        transaction_date,
-        merchant_name,
-        amount_brl,
-        reconciliation:reconciliations!inner(status)
-      `)
-      .eq('card_alias', holder.card_alias)
-      .eq('reconciliation.status', 'Pendente')
-      .order('transaction_date', { ascending: false })
-
-    const pending = (transactions || []).map((t) => ({
+  // Group by card_alias
+  const txByAlias = new Map<string, PendingTransaction[]>()
+  for (const t of allTransactions || []) {
+    const alias = t.card_alias as string
+    const list = txByAlias.get(alias) || []
+    list.push({
       transaction_date: t.transaction_date,
       merchant_name: t.merchant_name,
       amount_brl: Number(t.amount_brl),
-    }))
+    })
+    txByAlias.set(alias, list)
+  }
 
+  const notifications: HolderNotification[] = []
+  for (const holder of holders) {
+    const pending = txByAlias.get(holder.card_alias) || []
     if (pending.length > 0) {
       notifications.push({
         holderId: holder.id,

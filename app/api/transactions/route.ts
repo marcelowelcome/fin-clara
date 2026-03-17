@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { authenticateRequest } from '@/lib/api-auth'
 import type { ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
@@ -13,15 +13,9 @@ type TransactionsResult = {
 
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<TransactionsResult>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
+    const [auth, error] = await authenticateRequest()
+    if (error) return error
+    const { supabase } = auth
 
     const searchParams = request.nextUrl.searchParams
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
@@ -77,11 +71,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       .order(sortBy, { ascending: sortOrder })
       .range(from, to)
 
-    const { data: transactions, count, error } = await query
+    const { data: transactions, count, error: queryError } = await query
 
-    if (error) {
+    if (queryError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'QUERY_ERROR' } },
+        { data: null, error: { message: queryError.message, code: 'QUERY_ERROR' } },
         { status: 500 }
       )
     }

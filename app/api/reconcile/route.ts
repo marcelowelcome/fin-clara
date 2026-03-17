@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { requireAdmin } from '@/lib/api-auth'
 import {
   ReconcileActionSchema,
   BulkReconcileActionSchema,
@@ -14,28 +14,9 @@ export const dynamic = 'force-dynamic'
 // PATCH — single transaction reconciliation
 export async function PATCH(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito a administradores', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase, userId } = auth
 
     const body = await request.json()
     const parsed = ReconcileActionSchema.safeParse(body)
@@ -84,7 +65,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
       .update({
         status: newStatus,
         note: note || null,
-        reconciled_by: user.id,
+        reconciled_by: userId,
         reconciled_at: new Date().toISOString(),
         is_recurring: newStatus === 'Recorrente',
       })
@@ -104,7 +85,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
         transaction_id: transactionId,
         old_status: oldStatus,
         new_status: newStatus,
-        changed_by: user.id,
+        changed_by: userId,
         note: note || null,
       })
 
@@ -125,28 +106,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
 // POST — bulk reconciliation
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ updated: number }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito a administradores', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase, userId } = auth
 
     const body = await request.json()
     const parsed = BulkReconcileActionSchema.safeParse(body)
@@ -172,43 +134,40 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       )
     }
 
-    let updated = 0
-    const logs: {
-      transaction_id: string
-      old_status: string
-      new_status: string
-      changed_by: string
-      note: string | null
-    }[] = []
-
-    for (const rec of currentReconciliations) {
+    // Filter valid transitions
+    const validRecs = currentReconciliations.filter((rec) => {
       const oldStatus = rec.status as ReconciliationStatus
+      return isValidTransition(oldStatus, newStatus) &&
+        (!requiresNote(oldStatus, newStatus) || !!note)
+    })
 
-      if (!isValidTransition(oldStatus, newStatus)) continue
-      if (requiresNote(oldStatus, newStatus) && !note) continue
-
-      const { error } = await supabase
-        .from('reconciliations')
-        .update({
-          status: newStatus,
-          note: note || null,
-          reconciled_by: user.id,
-          reconciled_at: new Date().toISOString(),
-          is_recurring: newStatus === 'Recorrente',
-        })
-        .eq('id', rec.id)
-
-      if (!error) {
-        updated++
-        logs.push({
-          transaction_id: rec.transaction_id,
-          old_status: oldStatus,
-          new_status: newStatus,
-          changed_by: user.id,
-          note: note || null,
-        })
-      }
+    if (validRecs.length === 0) {
+      return NextResponse.json({ data: { updated: 0 }, error: null })
     }
+
+    const validIds = validRecs.map((r) => r.id)
+    const now = new Date().toISOString()
+
+    // Batch update all valid reconciliations in ONE query
+    await supabase
+      .from('reconciliations')
+      .update({
+        status: newStatus,
+        note: note || null,
+        reconciled_by: userId,
+        reconciled_at: now,
+        is_recurring: newStatus === 'Recorrente',
+      })
+      .in('id', validIds)
+
+    const updated = validRecs.length
+    const logs = validRecs.map((rec) => ({
+      transaction_id: rec.transaction_id,
+      old_status: rec.status,
+      new_status: newStatus,
+      changed_by: userId,
+      note: note || null,
+    }))
 
     // Batch insert logs
     if (logs.length > 0) {

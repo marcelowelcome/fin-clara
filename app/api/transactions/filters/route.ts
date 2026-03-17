@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { authenticateRequest } from '@/lib/api-auth'
 import type { ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
@@ -12,31 +12,31 @@ type FilterOptions = {
 
 export async function GET(): Promise<NextResponse<ApiResponse<FilterOptions>>> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const [auth, error] = await authenticateRequest()
+    if (error) return error
+    const { supabase } = auth
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    // Fetch distinct values for filters
-    const [periods, aliases, categories] = await Promise.all([
+    // Use separate lightweight queries — holders and billing_periods are low cardinality
+    const [periods, holders, categories] = await Promise.all([
+      // billing_period from transactions (limited set)
       supabase
         .from('transactions')
         .select('billing_period')
-        .order('billing_period', { ascending: false }),
+        .not('billing_period', 'eq', '')
+        .order('billing_period', { ascending: false })
+        .limit(500),
+      // card_alias from holders table (much smaller than transactions)
       supabase
-        .from('transactions')
+        .from('holders')
         .select('card_alias')
         .order('card_alias'),
+      // categories — limited set
       supabase
         .from('transactions')
         .select('category')
         .not('category', 'is', null)
-        .order('category'),
+        .order('category')
+        .limit(500),
     ])
 
     const unique = (arr: Record<string, string>[] | null, key: string): string[] => {
@@ -47,7 +47,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<FilterOptions>>> {
     return NextResponse.json({
       data: {
         billingPeriods: unique(periods.data, 'billing_period'),
-        cardAliases: unique(aliases.data, 'card_alias'),
+        cardAliases: unique(holders.data, 'card_alias'),
         categories: unique(categories.data, 'category'),
       },
       error: null,

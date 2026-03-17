@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { authenticateRequest } from '@/lib/api-auth'
 import type { ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<unknown[]>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
+    const [auth, error] = await authenticateRequest()
+    if (error) return error
+    const { supabase } = auth
 
     const transactionId = request.nextUrl.searchParams.get('transaction_id')
     if (!transactionId) {
@@ -24,15 +18,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       )
     }
 
-    const { data, error } = await supabase
+    const { data, error: queryError } = await supabase
       .from('reconciliation_log')
       .select('id, old_status, new_status, changed_by, changed_at, note')
       .eq('transaction_id', transactionId)
       .order('changed_at', { ascending: false })
 
-    if (error) {
+    if (queryError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'QUERY_ERROR' } },
+        { data: null, error: { message: queryError.message, code: 'QUERY_ERROR' } },
         { status: 500 }
       )
     }

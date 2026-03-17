@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase-server'
+import { requireAdmin } from '@/lib/api-auth'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 import type { ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
@@ -14,36 +15,17 @@ type UserRecord = {
 // GET — list all users with their profiles
 export async function GET(): Promise<NextResponse<ApiResponse<UserRecord[]>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase } = auth
 
     // Use service role to list auth users
     const adminClient = await createServiceRoleClient()
-    const { data: { users }, error } = await adminClient.auth.admin.listUsers()
+    const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers()
 
-    if (error) {
+    if (authError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'AUTH_ERROR' } },
+        { data: null, error: { message: authError.message, code: 'AUTH_ERROR' } },
         { status: 500 }
       )
     }
@@ -80,28 +62,8 @@ export async function GET(): Promise<NextResponse<ApiResponse<UserRecord[]>>> {
 // POST — create new user
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ id: string }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
 
     const { email, password, role } = await request.json()
 
@@ -159,28 +121,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 // PATCH — update user role
 export async function PATCH(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { userId: currentUserId } = auth
 
     const { userId, role } = await request.json()
 
@@ -192,7 +135,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
     }
 
     // Prevent removing own admin
-    if (userId === user.id && role !== 'admin') {
+    if (userId === currentUserId && role !== 'admin') {
       return NextResponse.json(
         { data: null, error: { message: 'Voce nao pode remover seu proprio acesso admin', code: 'SELF_DEMOTE' } },
         { status: 400 }
@@ -200,14 +143,14 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
     }
 
     const adminClient = await createServiceRoleClient()
-    const { error } = await adminClient
+    const { error: dbError } = await adminClient
       .from('profiles')
       .update({ role })
       .eq('id', userId)
 
-    if (error) {
+    if (dbError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'DB_ERROR' } },
+        { data: null, error: { message: dbError.message, code: 'DB_ERROR' } },
         { status: 500 }
       )
     }
@@ -225,31 +168,12 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
 // DELETE — remove user
 export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { userId: currentUserId } = auth
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
-
-    const userId = request.nextUrl.searchParams.get('id')
-    if (!userId) {
+    const targetUserId = request.nextUrl.searchParams.get('id')
+    if (!targetUserId) {
       return NextResponse.json(
         { data: null, error: { message: 'ID obrigatorio', code: 'VALIDATION' } },
         { status: 400 }
@@ -257,7 +181,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     }
 
     // Prevent self-deletion
-    if (userId === user.id) {
+    if (targetUserId === currentUserId) {
       return NextResponse.json(
         { data: null, error: { message: 'Voce nao pode excluir sua propria conta', code: 'SELF_DELETE' } },
         { status: 400 }
@@ -267,11 +191,11 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     const adminClient = await createServiceRoleClient()
 
     // Delete auth user (profile is cascade deleted via FK)
-    const { error } = await adminClient.auth.admin.deleteUser(userId)
+    const { error: authError } = await adminClient.auth.admin.deleteUser(targetUserId)
 
-    if (error) {
+    if (authError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'AUTH_ERROR' } },
+        { data: null, error: { message: authError.message, code: 'AUTH_ERROR' } },
         { status: 500 }
       )
     }

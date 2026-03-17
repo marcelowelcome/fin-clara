@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { authenticateRequest, requireAdmin } from '@/lib/api-auth'
 import { HolderFormSchema, type ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
@@ -7,24 +7,18 @@ export const dynamic = 'force-dynamic'
 // GET — list all holders
 export async function GET(): Promise<NextResponse<ApiResponse<unknown[]>>> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const [auth, error] = await authenticateRequest()
+    if (error) return error
+    const { supabase } = auth
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data, error } = await supabase
+    const { data, error: queryError } = await supabase
       .from('holders')
       .select('*')
       .order('name')
 
-    if (error) {
+    if (queryError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'QUERY_ERROR' } },
+        { data: null, error: { message: queryError.message, code: 'QUERY_ERROR' } },
         { status: 500 }
       )
     }
@@ -42,28 +36,9 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown[]>>> {
 // POST — create holder
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito a administradores', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase } = auth
 
     const body = await request.json()
     const parsed = HolderFormSchema.safeParse(body)
@@ -74,15 +49,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       )
     }
 
-    const { data, error } = await supabase
+    const { data, error: dbError } = await supabase
       .from('holders')
       .insert(parsed.data)
       .select()
       .single()
 
-    if (error) {
+    if (dbError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'DB_ERROR' } },
+        { data: null, error: { message: dbError.message, code: 'DB_ERROR' } },
         { status: 500 }
       )
     }
@@ -100,28 +75,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 // PATCH — update holder
 export async function PATCH(request: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase } = auth
 
     const body = await request.json()
     const { id, ...fields } = body
@@ -133,16 +89,16 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
       )
     }
 
-    const { data, error } = await supabase
+    const { data, error: dbError } = await supabase
       .from('holders')
       .update(fields)
       .eq('id', id)
       .select()
       .single()
 
-    if (error) {
+    if (dbError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'DB_ERROR' } },
+        { data: null, error: { message: dbError.message, code: 'DB_ERROR' } },
         { status: 500 }
       )
     }
@@ -160,28 +116,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
 // DELETE — remove holder
 export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { data: null, error: { message: 'Acesso restrito', code: 'FORBIDDEN' } },
-        { status: 403 }
-      )
-    }
+    const [auth, error] = await requireAdmin()
+    if (error) return error
+    const { supabase } = auth
 
     const { searchParams } = request.nextUrl
     const id = searchParams.get('id')
@@ -193,14 +130,14 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
       )
     }
 
-    const { error } = await supabase
+    const { error: dbError } = await supabase
       .from('holders')
       .delete()
       .eq('id', id)
 
-    if (error) {
+    if (dbError) {
       return NextResponse.json(
-        { data: null, error: { message: error.message, code: 'DB_ERROR' } },
+        { data: null, error: { message: dbError.message, code: 'DB_ERROR' } },
         { status: 500 }
       )
     }

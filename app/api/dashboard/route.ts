@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { authenticateRequest } from '@/lib/api-auth'
 import { getKPIs, getSpendByCategory, getSpendByHolder, getBillingPeriods, getMonthlySpend } from '@/lib/metrics'
 import type { ApiResponse } from '@/lib/schemas'
 
@@ -7,15 +7,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<unknown>>> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { data: null, error: { message: 'Nao autenticado', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
+    const [auth, error] = await authenticateRequest()
+    if (error) return error
+    const { supabase } = auth
 
     const billingPeriod = request.nextUrl.searchParams.get('billing_period') || undefined
 
