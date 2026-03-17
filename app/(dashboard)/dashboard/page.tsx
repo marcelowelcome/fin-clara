@@ -51,7 +51,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Visao geral do cartao corporativo Clara
+            Como anda a conciliacao? Bora conferir!
           </p>
         </div>
 
