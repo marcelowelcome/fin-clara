@@ -2,7 +2,9 @@ import { Resend } from 'resend'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 type PendingTransaction = {
   transaction_date: string
@@ -125,7 +127,7 @@ export async function sendNotification(notification: HolderNotification): Promis
   `
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResendClient().emails.send({
       from: `${fromName} <${fromEmail}>`,
       to: notification.email,
       subject: `${notification.pendingCount} transacao(es) pendente(s) de conciliacao`,
