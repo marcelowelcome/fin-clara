@@ -1,38 +1,45 @@
-# .cursorrules — Clara Card Manager
-# Este arquivo é lido automaticamente pelo Cursor e Windsurf em cada sessão.
-# É um alias do AGENT_INSTRUCTIONS.md — mantenha os dois sincronizados.
+# .cursorrules — Clara - Conciliacao
+# Este arquivo e lido automaticamente pelo Cursor e Windsurf em cada sessao.
+# E um alias do AGENT_INSTRUCTIONS.md — mantenha os dois sincronizados.
 
 ## Projeto
-Clara Card Manager — gestão e conciliação de cartão corporativo Clara (Welcome Weddings).
-Stack: Next.js 14 · TypeScript · Tailwind · Supabase · Vercel.
+Clara - Conciliacao — gestao e conciliacao de cartao corporativo Clara (Welcome Group).
+Stack: Next.js 14 · TypeScript · Tailwind · shadcn/ui · Supabase · Vercel.
+Repo: https://github.com/marcelowelcome/fin-clara
 Leia ARCHITECTURE.md antes de qualquer tarefa.
 
-## Regras obrigatórias
+## Regras obrigatorias
 
 1. LEIA ARCHITECTURE.md antes de criar ou editar qualquer arquivo.
-2. Um módulo, uma responsabilidade. Não vazar lógica entre módulos.
+2. Um modulo, uma responsabilidade. Nao vazar logica entre modulos.
 3. Todos os tipos em lib/schemas.ts. Nunca declarar tipos inline.
-4. Supabase apenas via lib/supabase.ts (client) ou lib/supabase-server.ts (server).
-5. Upload nunca sobrescreve registros — dedup via lib/dedup.ts é obrigatória.
-6. Toda mudança de status de conciliação gera registro em reconciliation_log.
-7. RLS filtra por titular no banco — não substituir por WHERE no código.
-8. Datas e valores sempre em pt-BR na UI. Datas ISO e NUMERIC no banco.
-9. API routes retornam { data, error } — try/catch em todas.
-10. Commits por módulo: feat(M1):, fix(M3):, etc.
+4. Auth em API routes: usar authenticateRequest() ou requireAdmin() de lib/api-auth.ts. NUNCA repetir boilerplate.
+5. Supabase: browser via lib/supabase.ts, server via auth helper. NUNCA instanciar direto.
+6. Dedup somente por auth_code (autorizadas). Recusadas NUNCA sao deduplicadas.
+7. Toda mudanca de status de conciliacao gera registro em reconciliation_log.
+8. RLS filtra por titular no banco — nao substituir por WHERE no codigo.
+9. Datas e valores sempre em pt-BR na UI. Datas ISO e NUMERIC no banco.
+10. API routes retornam { data, error } — try/catch em todas.
+11. Toda API route DEVE ter `export const dynamic = 'force-dynamic'`.
+12. Clients externos (Resend) DEVEM ser lazy-initialized (nunca top-level).
+13. NUNCA fazer queries individuais em loop (N+1). Usar .in() para batch.
 
 ## Checklist antes de entregar
-- Arquivo no diretório correto (ver ARCHITECTURE.md)?
+- Arquivo no diretorio correto (ver ARCHITECTURE.md)?
 - Tipos em lib/schemas.ts?
-- Lógica de negócio em lib/?
-- Supabase importado de lib/supabase.ts?
+- Logica de negocio em lib/?
+- Auth via lib/api-auth.ts (nao boilerplate manual)?
+- force-dynamic na API route?
 - Dedup preservada se tocou no upload?
-- Log gerado se tocou em status de conciliação?
-- Formatação pt-BR na UI?
+- Log gerado se tocou em status de conciliacao?
+- Formatacao pt-BR na UI?
 - API retorna { data, error }?
 - Nenhuma chave hardcoded?
+- Queries batch (sem N+1)?
 
-## Contexto de negócio
-- CSV da Clara em ISO-8859-1. Campos: transaction_date, billing_period, merchant_name, amount_brl, card_alias, status, auth_code, category, holder_name.
-- Dedup: UNIQUE(transaction_date, auth_code, amount_brl) para autorizadas; UNIQUE(transaction_date, merchant_name, amount_brl, status) para sem auth_code.
-- Status de conciliação: Pendente | Conciliado | N/A | Recorrente.
-- Perfis: admin (acesso total) | holder (só vê o próprio card_alias).
+## Contexto de negocio
+- CSV da Clara usa datas ISO (YYYY-MM-DD) e ponto decimal (2000.0).
+- Dedup: UNIQUE(transaction_date, auth_code, amount_brl) para autorizadas. Sem dedup para recusadas.
+- Status de conciliacao: Pendente | Conciliado | N/A | Recorrente.
+- Perfis: admin (acesso total) | holder (so ve o proprio card_alias).
+- Dashboard: KPIs + ranking (sem graficos). Tom descontraido.

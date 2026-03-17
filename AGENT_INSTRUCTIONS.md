@@ -1,167 +1,179 @@
-# AGENT_INSTRUCTIONS.md — Clara Card Manager
+# AGENT_INSTRUCTIONS.md — Clara - Conciliacao
 
 > Regras permanentes para o agente de IA durante o desenvolvimento deste projeto.
-> Estas instruções têm prioridade sobre qualquer sugestão genérica do modelo.
-> Copie este conteúdo também no `.cursorrules` para uso automático no Cursor/Windsurf.
+> Estas instrucoes tem prioridade sobre qualquer sugestao generica do modelo.
+> Copie este conteudo tambem no `.cursorrules` para uso automatico no Cursor/Windsurf.
 
 ---
 
 ## REGRA 1 — Leia a arquitetura antes de agir
 
 Antes de criar ou editar qualquer arquivo, leia `ARCHITECTURE.md` para confirmar:
-- Em qual módulo a tarefa se encaixa
+- Em qual modulo a tarefa se encaixa
 - Quais arquivos existentes devem ser modificados vs. criados do zero
-- Se a mudança impacta outros módulos (verificar dependências na tabela de módulos)
+- Se a mudanca impacta outros modulos (verificar dependencias na tabela de modulos)
 
-**Nunca criar um novo arquivo sem primeiro verificar se já existe um equivalente na estrutura.**
+**Nunca criar um novo arquivo sem primeiro verificar se ja existe um equivalente na estrutura.**
 
 ---
 
-## REGRA 2 — Um módulo, uma responsabilidade
+## REGRA 2 — Um modulo, uma responsabilidade
 
-Cada módulo tem fronteiras definidas. Não vazar lógica entre módulos:
+Cada modulo tem fronteiras definidas. Nao vazar logica entre modulos:
 
 ```
-✅ M3 (Conciliação) chama a API route de M2 para buscar uma transação
+✅ M3 (Conciliacao) chama a API route de M2 para buscar uma transacao
 ❌ M3 acessa a tabela `transactions` diretamente sem passar por lib/
 ✅ M7 (Dashboard) usa lib/metrics.ts para calcular KPIs
 ❌ M7 faz queries SQL inline no componente React
 ```
 
-Se uma tarefa parece exigir lógica de dois módulos, crie uma função em `lib/` e importe onde necessário.
+Se uma tarefa parece exigir logica de dois modulos, crie uma funcao em `lib/` e importe onde necessario.
 
 ---
 
 ## REGRA 3 — Tipos em schemas.ts, sempre
 
-Qualquer novo tipo de dado (interface, type, enum) vai em `lib/schemas.ts`. Nunca declarar tipos inline em componentes ou API routes.
+Qualquer novo tipo de dado (interface, type, enum) vai em `lib/schemas.ts`. Nunca declarar tipos inline em componentes ou API routes (exceto tipos locais de componente como props).
+
+Usar Zod para validacao de inputs de API.
+
+---
+
+## REGRA 4 — Auth via lib/api-auth.ts
+
+Toda API route DEVE usar o helper de autenticacao:
 
 ```typescript
-// ✅ Correto
-import { Transaction, ReconciliationStatus } from '@/lib/schemas'
+// Para rotas que qualquer usuario autenticado pode acessar:
+import { authenticateRequest } from '@/lib/api-auth'
+const [auth, error] = await authenticateRequest()
+if (error) return error
+const { supabase, userId, role } = auth
 
-// ❌ Errado
-const transaction: { id: string; amount: number } = ...
+// Para rotas admin-only:
+import { requireAdmin } from '@/lib/api-auth'
+const [auth, error] = await requireAdmin()
+if (error) return error
+const { supabase, userId } = auth
 ```
 
-Usar Zod para validação de inputs de API (especialmente o payload do upload do CSV).
+**NUNCA** repetir o boilerplate de auth/admin check manualmente. **NUNCA** instanciar `createServerSupabaseClient()` diretamente nas routes.
 
 ---
 
-## REGRA 4 — Supabase apenas via lib/supabase.ts
+## REGRA 5 — Supabase apenas via lib/
 
-O cliente Supabase é instanciado uma única vez em `lib/supabase.ts` (client-side) e `lib/supabase-server.ts` (server-side com cookies). Nunca chamar `createClient()` em outro lugar.
+- Browser: `import { createClient } from '@/lib/supabase'`
+- Server: usar `supabase` retornado pelo helper de auth (REGRA 4)
+- Service role: `import { createServiceRoleClient } from '@/lib/supabase-server'` (apenas para operacoes admin como criar usuarios)
+
+**NUNCA** importar `@supabase/supabase-js` diretamente. A `SUPABASE_SERVICE_ROLE_KEY` so pode ser usada server-side.
+
+---
+
+## REGRA 6 — Deduplicacao somente por auth_code
+
+O modulo de upload (M1) deduplica APENAS por `auth_code` para transacoes autorizadas. Transacoes recusadas/pendentes NUNCA sao deduplicadas — cada linha do CSV e um evento distinto.
 
 ```typescript
-// ✅ Correto — em API routes e server components
-import { createServerClient } from '@/lib/supabase-server'
-
-// ✅ Correto — em client components
-import { supabase } from '@/lib/supabase'
-
-// ❌ Errado
-import { createClient } from '@supabase/supabase-js'
-const supabase = createClient(url, key) // direto no componente
+// Chave de dedup:
+// Autorizadas: UNIQUE(transaction_date, auth_code, amount_brl)
+// Recusadas/Pendentes: sem dedup (todas sao inseridas)
 ```
-
-A `SUPABASE_SERVICE_ROLE_KEY` só pode ser usada em API routes server-side. Nunca em código que roda no browser.
 
 ---
 
-## REGRA 5 — Deduplicação é sagrada
+## REGRA 7 — Status de conciliacao segue a maquina de estados
 
-O módulo de upload (M1) nunca deve sobrescrever registros existentes. A lógica de dedup vive em `lib/dedup.ts` e deve ser chamada antes de qualquer `INSERT`.
+```
+Pendente    → Conciliado    ✅
+Pendente    → Recorrente    ✅
+Conciliado  → Pendente      ✅ (reversao com justificativa obrigatoria)
+Recorrente  → Conciliado    ✅
+N/A         → qualquer      ❌ (imutavel)
+```
+
+Toda mudanca de status DEVE gerar registro em `reconciliation_log`.
+
+---
+
+## REGRA 8 — RLS e responsabilidade do banco
+
+A filtragem por titular e feita via Row Level Security no Supabase, nao via `WHERE` no codigo. O codigo pode adicionar filtros de UX, mas nunca deve ser a unica barreira de acesso.
+
+---
+
+## REGRA 9 — Formatacao pt-BR em toda a UI
+
+Datas: `DD/MM/YYYY` na UI, `YYYY-MM-DD` no banco. Valores: `R$ 1.234,56`. Usar `formatCurrency()` e `formatDate()` de `lib/utils.ts`.
+
+---
+
+## REGRA 10 — Erros de API sempre no formato padrao
 
 ```typescript
-// Fluxo obrigatório no upload:
-const rows = parseCSV(file)           // lib/csv-parser.ts
-const newRows = await dedup(rows)     // lib/dedup.ts — remove já existentes
-await insertTransactions(newRows)     // inserção só dos novos
-await logUpload(stats)                // registra na tabela uploads
+{ data: result, error: null }              // sucesso
+{ data: null, error: { message, code? } }  // erro
 ```
 
-Qualquer alteração neste fluxo deve ser discutida explicitamente — não modificar silenciosamente.
+Nunca lancar excecoes nao capturadas em API routes. Usar try/catch.
 
 ---
 
-## REGRA 6 — Status de conciliação segue a máquina de estados
-
-Transições de status de conciliação têm regras:
-
-```
-Pendente    → Conciliado    ✅ (ação do gestor)
-Pendente    → Recorrente    ✅ (M6 automático ou gestor)
-Conciliado  → Pendente      ✅ (reversão com justificativa obrigatória)
-N/A         → qualquer      ❌ (imutável — setado automaticamente para Recusadas)
-Recorrente  → Conciliado    ✅ (se necessário marcar individualmente)
-```
-
-Toda mudança de status deve gerar um registro em `reconciliation_log`. Nunca atualizar `reconciliations` sem registrar no log.
-
----
-
-## REGRA 7 — RLS é responsabilidade do banco, não do código
-
-A filtragem por titular deve ser feita via Row Level Security no Supabase, não via `WHERE` no código da aplicação. O código pode adicionar filtros extras de UX, mas nunca deve ser a única barreira de acesso.
-
-Ao criar queries que retornam dados de transações, confiar no RLS para limitar o escopo. Documentar qualquer exceção explicitamente.
-
----
-
-## REGRA 8 — Formatação pt-BR em toda a UI
-
-Datas e valores monetários sempre formatados para o usuário brasileiro:
+## REGRA 11 — Toda API route e force-dynamic
 
 ```typescript
-// Datas
-format(date, 'dd/MM/yyyy', { locale: ptBR })
-
-// Valores monetários
-new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-
-// No banco: datas em ISO (YYYY-MM-DD), valores como NUMERIC — nunca string
+export const dynamic = 'force-dynamic'
 ```
+
+Obrigatorio em TODA API route e layouts que usam cookies/Supabase. Sem isso, o Vercel tenta pre-renderizar e falha.
 
 ---
 
-## REGRA 9 — Erros de API sempre no formato padrão
+## REGRA 12 — Clients externos sao lazy-initialized
 
-Todas as API routes devem retornar no formato:
+Nunca instanciar clients de servicos externos (Resend, etc.) no top-level do modulo:
 
 ```typescript
-// Sucesso
-return NextResponse.json({ data: result, error: null })
+// ❌ Errado — quebra o build do Vercel
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Erro
-return NextResponse.json({ data: null, error: { message: string, code?: string } }, { status: 4xx | 5xx })
+// ✅ Correto — so instancia quando chamado em runtime
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 ```
-
-Nunca lançar exceções não capturadas em API routes. Usar try/catch em todas as rotas.
 
 ---
 
-## REGRA 10 — Commits atômicos por módulo
+## REGRA 13 — Performance: evitar N+1
 
-Ao finalizar uma tarefa, o commit deve referenciar o módulo:
+Nunca fazer queries individuais em loop. Usar `.in()` para batch:
 
+```typescript
+// ❌ N+1
+for (const id of ids) {
+  await supabase.from('table').select().eq('id', id)
+}
+
+// ✅ Batch
+await supabase.from('table').select().in('id', ids)
 ```
-feat(M1): implementa parser CSV com suporte a encoding ISO-8859-1
-fix(M3): corrige reversão de status sem log no reconciliation_log
-feat(M7): adiciona gráfico de distribuição por titular no dashboard
-```
 
-Nunca misturar mudanças de módulos diferentes em um único commit.
+Batch inserts e updates sempre que possivel.
 
 ---
 
-## Checklist antes de entregar qualquer código
+## Checklist antes de entregar qualquer codigo
 
-- [ ] O arquivo está no diretório correto conforme `ARCHITECTURE.md`?
+- [ ] O arquivo esta no diretorio correto conforme `ARCHITECTURE.md`?
 - [ ] Novos tipos foram adicionados a `lib/schemas.ts`?
-- [ ] A lógica de negócio está em `lib/`, não no componente ou na route?
-- [ ] O cliente Supabase foi importado de `lib/supabase.ts`?
+- [ ] A logica de negocio esta em `lib/`, nao no componente ou na route?
+- [ ] Auth usa `authenticateRequest()` ou `requireAdmin()` de `lib/api-auth.ts`?
 - [ ] Se alterou fluxo de upload, a dedup foi preservada?
-- [ ] Se alterou status de conciliação, o log foi registrado?
-- [ ] Valores e datas estão formatados em pt-BR na UI?
-- [ ] A API route retorna `{ data, error }`?
-- [ ] Nenhum segredo/chave está hardcoded no código?
+- [ ] Se alterou status de conciliacao, o log foi registrado?
+- [ ] Valores e datas estao formatados em pt-BR na UI?
+- [ ] A API route retorna `{ data, error }` e tem `force-dynamic`?
+- [ ] Nenhum segredo/chave esta hardcoded no codigo?
+- [ ] Queries em loop foram substituidas por batch operations?

@@ -1,4 +1,4 @@
-# SESSION_STARTER.md — Clara Card Manager
+# SESSION_STARTER.md — Clara - Conciliacao
 
 > Template de prompt para iniciar cada nova sessão de vibecoding.
 > Cole o bloco correspondente ao tipo de tarefa no início da conversa com o agente.

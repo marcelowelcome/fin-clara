@@ -1,6 +1,7 @@
 {
-  "name": "fin-clara-temp",
-  "version": "0.1.0",
+  "name": "clara-conciliacao",
+  "version": "1.0.0",
+  "description": "Gestao e conciliacao de cartao corporativo Clara — Welcome Group",
   "private": true,
   "scripts": {
     "dev": "next dev",

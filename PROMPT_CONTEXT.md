@@ -1,141 +1,117 @@
-# PROMPT_CONTEXT.md — Clara Card Manager
+# PROMPT_CONTEXT.md — Clara - Conciliacao
 
-> Cole este arquivo inteiro no início de cada nova sessão com o agente de IA (Cursor, Windsurf, Claude, ChatGPT etc.).
-> Ele garante que o agente entenda o projeto sem precisar de explicações repetidas.
+> Cole este arquivo inteiro no inicio de cada nova sessao com o agente de IA (Cursor, Windsurf, Claude, ChatGPT etc.).
+> Ele garante que o agente entenda o projeto sem precisar de explicacoes repetidas.
 
 ---
 
-## O que é este projeto
+## O que e este projeto
 
-**Clara Card Manager** é uma aplicação web para gestão e conciliação de lançamentos do cartão corporativo Clara da Welcome Weddings.
+**Clara - Conciliacao** e uma aplicacao web para gestao e conciliacao de lancamentos do cartao corporativo Clara da Welcome Group.
 
-O problema que resolve: a empresa importa manualmente um CSV da plataforma Clara com todos os lançamentos do cartão (por múltiplos titulares). Hoje a conciliação é feita em planilhas, sem controle de duplicidade, sem visibilidade por titular e sem notificações automáticas.
+O problema que resolve: a empresa importa manualmente um CSV da plataforma Clara com todos os lancamentos do cartao (por multiplos titulares). Hoje a conciliacao e feita em planilhas, sem controle de duplicidade, sem visibilidade por titular e sem notificacoes automaticas.
 
-A aplicação substitui esse processo com: upload periódico do CSV → deduplicação automática → conciliação assistida → notificações por e-mail para titulares com pendências → dashboard gerencial.
+A aplicacao substitui esse processo com: upload periodico do CSV → preview → deduplicacao automatica → conciliacao assistida → notificacoes por e-mail → dashboard gerencial com ranking por titular.
 
 ---
 
 ## Stack
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes (server actions)
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Next.js API Routes com `lib/api-auth.ts` para autenticacao
 - **Banco**: Supabase (PostgreSQL) com Row Level Security
-- **Auth**: Supabase Auth
-- **E-mail**: Resend API
-- **Deploy**: Vercel
+- **Auth**: Supabase Auth (admin + holder)
+- **E-mail**: Resend API (lazy-initialized)
+- **Deploy**: Vercel (auto-deploy on push to main)
+- **Repo**: https://github.com/marcelowelcome/fin-clara
 
 ---
 
 ## Estrutura modular
 
-O projeto tem 8 módulos. Cada módulo tem responsabilidade única:
+O projeto tem 9 modulos. Cada modulo tem responsabilidade unica:
 
-| Módulo | O que faz | Arquivos-chave |
+| Modulo | O que faz | Arquivos-chave |
 |--------|-----------|----------------|
-| M1 — Upload | Importa CSV, deduplica, registra log | `app/api/upload/route.ts`, `lib/csv-parser.ts`, `lib/dedup.ts` |
-| M2 — Transações | Lista e filtra transações | `app/api/transactions/route.ts`, `components/Transactions/` |
-| M3 — Conciliação | Marca/desmarca conciliação, histórico | `app/api/reconcile/route.ts`, `components/Reconciliation/` |
-| M4 — Titulares | CRUD de titulares + config de notificação | `app/api/holders/route.ts`, `components/Holders/` |
-| M5 — Notificações | Envia digest de pendências por e-mail | `app/api/notify/route.ts`, `lib/notify.ts` |
-| M6 — Recorrências | Detecta e marca transações recorrentes | `app/api/recurrence/route.ts`, `lib/recurrence.ts` |
-| M7 — Dashboard | KPIs, gráficos por fatura e titular | `app/(dashboard)/page.tsx`, `components/Dashboard/` |
-| M8 — Auth | Login, perfis admin/titular, RLS | `app/(auth)/`, `lib/supabase-server.ts` |
+| M1 — Upload | Importa CSV com preview, deduplica por auth_code, historico com exclusao | `api/upload/`, `lib/csv-parser.ts`, `lib/dedup.ts` |
+| M2 — Transacoes | Lista, filtra, pagina, exporta CSV | `api/transactions/`, `components/Transactions/` |
+| M3 — Conciliacao | Individual e em lote (batch), historico, maquina de estados | `api/reconcile/`, `components/Reconciliation/` |
+| M4 — Titulares | CRUD + vinculo a usuario + config de notificacao | `api/holders/`, `components/Holders/` |
+| M5 — Notificacoes | Envia digest de pendencias (individual ou em massa) | `api/notify/`, `lib/notify.ts` |
+| M6 — Recorrencias | Detecta padroes, gestao com ativar/desativar | `api/recurrence/`, `lib/recurrence.ts` |
+| M7 — Dashboard | KPIs com barras, ranking por titular com medalhas | `dashboard/page.tsx`, `components/Dashboard/` |
+| M8 — Auth | Login, perfis admin/titular, RLS, middleware | `app/(auth)/`, `middleware.ts` |
+| M9 — Usuarios | CRUD de usuarios, troca de perfil, exclusao com dupla validacao | `api/users/`, `components/Users/` |
 
 ---
 
 ## Banco de dados — tabelas principais
 
 ```sql
--- transactions: tabela central
-id                  uuid PRIMARY KEY
-transaction_date    date
-billing_period      text          -- "09 Mar 2026 - 08 Apr 2026"
-merchant_name       text
-amount_brl          numeric(10,2)
-original_amount     numeric(10,2)
-original_currency   text          -- "BRL" ou "USD"
-card_last4          text          -- "1773"
-card_alias          text          -- "Marcelo Aveiro - Weddings"
-status              text          -- "Autorizada" | "Recusada" | "Pendente"
-auth_code           text          -- código de autorização (nulo para recusadas)
-category            text
-holder_name         text
-upload_id           uuid REFERENCES uploads(id)
-created_at          timestamptz
-
--- uploads: log de cada importação
-id, created_at, filename, uploaded_by, total_rows, inserted_rows, skipped_rows
-
--- reconciliations: status de conciliação (1:1 com transactions)
-id, transaction_id, status, note, reconciled_by, reconciled_at,
-is_recurring, recurrence_pattern_id
-
--- reconciliation_log: histórico
-id, transaction_id, old_status, new_status, changed_by, changed_at, note
-
--- holders: titulares cadastrados
-id, name, card_alias, card_last4, email, notify_enabled,
-notify_frequency, user_id
-
--- recurrence_patterns: padrões detectados
-id, merchant_pattern, avg_amount, tolerance_pct, active, created_by
+profiles              -- Perfis (admin/holder), auto-criado via trigger
+transactions          -- Tabela central: uma linha por transacao do CSV
+uploads               -- Log de cada importacao (cascade delete)
+reconciliations       -- Status de conciliacao por transacao (1:1)
+reconciliation_log    -- Historico de mudancas de status
+holders               -- Titulares com e-mail, user_id, config notificacao
+recurrence_patterns   -- Padroes de recorrencia identificados
 ```
 
 ---
 
-## Status de conciliação
+## Deduplicacao — regras
 
-| Status | Significado | Setado por |
-|--------|-------------|-----------|
-| `Pendente` | Transação autorizada ainda não tratada | Automático no upload |
-| `Conciliado` | Revisada e aprovada | Ação do gestor |
-| `N/A` | Recusada ou não aplicável | Automático para Recusadas |
-| `Recorrente` | Parte de série conhecida | M6 automático ou manual |
-
----
-
-## Deduplicação — regras
-
-```typescript
-// Transações com auth_code (autorizadas):
-UNIQUE(transaction_date, auth_code, amount_brl)
-
-// Sem auth_code (recusadas / pendentes):
-UNIQUE(transaction_date, merchant_name, amount_brl, status)
+```
+Autorizadas (com auth_code): UNIQUE(transaction_date, auth_code, amount_brl)
+Recusadas/Pendentes: SEM DEDUP — cada linha do CSV e um evento distinto
 ```
 
-Ao fazer upload, checar essas chaves antes de inserir. Registros que já existem são ignorados (não sobrescritos). O `upload_id` registra qual importação trouxe cada transação.
+**IMPORTANTE**: Nunca deduplicar transacoes sem auth_code.
 
 ---
 
-## Matching titular ↔ CSV
+## Status de conciliacao
 
-O campo `card_alias` do CSV (ex.: `"Marcelo Aveiro - Weddings"`) deve ser usado para vincular automaticamente transações ao titular cadastrado na tabela `holders`. Se não houver match, `holder_id` fica nulo para resolução manual.
-
----
-
-## Permissões (RLS)
-
-- **admin**: acesso total
-- **holder**: lê apenas registros onde `transactions.card_alias = holders.card_alias` do seu próprio perfil. Não pode fazer upload nem ver dados de outros titulares.
+| Status | Significado | Transicoes permitidas |
+|--------|-------------|----------------------|
+| `Pendente` | Autorizada nao tratada | → Conciliado, → Recorrente |
+| `Conciliado` | Revisada e aprovada | → Pendente (com justificativa) |
+| `Recorrente` | Parte de serie conhecida | → Conciliado |
+| `N/A` | Recusada (imutavel) | Nenhuma |
 
 ---
 
-## Contexto de negócio importante
+## Convencoes tecnicas obrigatorias
 
-- A empresa é a **Welcome Weddings**, divisão de casamentos de destino da Welcome Trips (Curitiba, Brasil).
-- O cartão tem **múltiplos titulares** — cada um com um `card_alias` distinto.
-- A grande maioria dos gastos é em **Publicidade Digital** (Google Ads + Facebook Ads) — transações recorrentes a cada ~3 dias.
-- O CSV é exportado da plataforma **Clara** em formato ISO-8859-1.
-- Todas as datas e valores monetários devem ser exibidos no formato **pt-BR**.
-- Transações **recusadas** não exigem conciliação (status automático `N/A`).
+1. **Auth**: usar `authenticateRequest()` ou `requireAdmin()` de `lib/api-auth.ts`
+2. **Dynamic**: toda API route DEVE ter `export const dynamic = 'force-dynamic'`
+3. **Tipos**: todos em `lib/schemas.ts` (Zod + TypeScript)
+4. **Supabase**: browser via `lib/supabase.ts`, server via auth helper
+5. **Lazy-init**: clients externos (Resend) nunca no top-level
+6. **Performance**: `.in()` para batch, nunca queries em loop
+7. **Formato**: pt-BR na UI (DD/MM/YYYY, R$ 1.234,56)
+8. **API**: retorna `{ data, error }` via `ApiResponse<T>`
 
 ---
 
-## O que NÃO fazer
+## Contexto de negocio
 
-- Não criar lógica de negócio dentro de componentes React — usar `lib/` para isso.
-- Não instanciar o cliente Supabase fora de `lib/supabase.ts` ou `lib/supabase-server.ts`.
-- Não expor `SUPABASE_SERVICE_ROLE_KEY` ao client-side.
-- Não sobrescrever registros existentes no upload — apenas inserir novos.
-- Não misturar responsabilidades de módulos — se um módulo precisar de dado de outro, usar a API route do módulo correspondente.
+- A empresa e a **Welcome Group** (casamentos de destino, Curitiba, Brasil)
+- O cartao tem **multiplos titulares** — cada um com um `card_alias` distinto
+- A grande maioria dos gastos e em **Publicidade Digital** (Google Ads + Facebook Ads)
+- O CSV da Clara usa **datas ISO** (YYYY-MM-DD) e **ponto decimal** (2000.0)
+- Transacoes **recusadas** nao exigem conciliacao (status automatico `N/A`)
+- Dashboard sem graficos — foco em KPIs + ranking de conciliacao por titular
+
+---
+
+## O que NAO fazer
+
+- Nao criar logica de negocio dentro de componentes React — usar `lib/`
+- Nao instanciar Supabase fora de `lib/supabase.ts` ou `lib/supabase-server.ts`
+- Nao repetir boilerplate de auth — usar `lib/api-auth.ts`
+- Nao expor `SUPABASE_SERVICE_ROLE_KEY` ao client-side
+- Nao sobrescrever registros existentes no upload — apenas inserir novos
+- Nao deduplicar transacoes sem auth_code
+- Nao instanciar clients externos no top-level do modulo
+- Nao fazer queries individuais em loop (N+1)

@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Clara - Conciliacao
 
-## Getting Started
+Plataforma de gestao e conciliacao de lancamentos do cartao corporativo Clara para a Welcome Group.
 
-First, run the development server:
+## Funcionalidades
+
+- **Upload CSV** com preview antes de processar e deduplicacao automatica por codigo de autorizacao
+- **Listagem de transacoes** com filtros (fatura, titular, status, categoria), busca e exportacao CSV
+- **Conciliacao** individual ou em lote, com historico completo de alteracoes
+- **Cadastro de titulares** com vinculo a usuario e configuracao de notificacoes
+- **Notificacoes por e-mail** (manual, individual ou em massa) via Resend
+- **Deteccao de recorrencias** (Google Ads, Facebook Ads, etc.) com gestao de padroes
+- **Dashboard** com KPIs e ranking de conciliacao por titular
+- **Gestao de usuarios** com perfis admin/titular e dupla validacao para exclusao
+- **Autenticacao** via Supabase Auth com Row Level Security
+
+## Stack
+
+Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui · Supabase · Vercel · Resend
+
+## Setup
 
 ```bash
+# Instalar dependencias
+npm install
+
+# Copiar variaveis de ambiente
+cp .env.local.example .env.local
+# Preencher com suas credenciais do Supabase e Resend
+
+# Executar migrations no Supabase SQL Editor:
+# 1. supabase/migrations/001_initial_schema.sql
+# 2. supabase/migrations/002_rls_policies.sql
+
+# Criar usuario admin:
+# 1. Supabase Dashboard → Authentication → Users → Add user
+# 2. SQL Editor: UPDATE profiles SET role = 'admin' WHERE id = '<uuid>';
+
+# Iniciar desenvolvimento
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Documentacao
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Estrutura, modulos, banco de dados, convencoes
+- [AGENT_INSTRUCTIONS.md](AGENT_INSTRUCTIONS.md) — Regras para desenvolvimento com IA
+- [PROMPT_CONTEXT.md](PROMPT_CONTEXT.md) — Contexto para sessoes com agentes de codigo
+- [SESSION_STARTER.md](SESSION_STARTER.md) — Templates para iniciar sessoes de desenvolvimento
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Licenca
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Projeto privado — Welcome Group.
