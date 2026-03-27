@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest, requireAdmin } from '@/lib/api-auth'
+import { createServiceRoleClient } from '@/lib/supabase-server'
 import { parseCSV } from '@/lib/csv-parser'
 import { dedup } from '@/lib/dedup'
 import type { ApiResponse } from '@/lib/schemas'
@@ -45,9 +46,11 @@ export async function GET(): Promise<NextResponse<ApiResponse<unknown[]>>> {
 // DELETE — remove upload and all associated data (transactions, reconciliations, logs)
 export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResponse<{ deleted: number }>>> {
   try {
-    const [auth, error] = await requireAdmin()
+    const [, error] = await requireAdmin()
     if (error) return error
-    const { supabase } = auth
+
+    // Use service role to bypass RLS for cascade delete
+    const supabase = await createServiceRoleClient()
 
     const uploadId = request.nextUrl.searchParams.get('id')
     if (!uploadId) {

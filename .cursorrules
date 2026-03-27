@@ -13,7 +13,7 @@ Leia ARCHITECTURE.md antes de qualquer tarefa.
 1. LEIA ARCHITECTURE.md antes de criar ou editar qualquer arquivo.
 2. Um modulo, uma responsabilidade. Nao vazar logica entre modulos.
 3. Todos os tipos em lib/schemas.ts. Nunca declarar tipos inline.
-4. Auth em API routes: usar authenticateRequest() ou requireAdmin() de lib/api-auth.ts. NUNCA repetir boilerplate.
+4. Auth em API routes: usar authenticateRequest(), requireAdmin() ou requireWriteAccess() de lib/api-auth.ts. NUNCA repetir boilerplate. Paginas admin-only devem usar <AdminGuard>.
 5. Supabase: browser via lib/supabase.ts, server via auth helper. NUNCA instanciar direto.
 6. Dedup somente por auth_code (autorizadas). Recusadas NUNCA sao deduplicadas.
 7. Toda mudanca de status de conciliacao gera registro em reconciliation_log.
@@ -28,7 +28,7 @@ Leia ARCHITECTURE.md antes de qualquer tarefa.
 - Arquivo no diretorio correto (ver ARCHITECTURE.md)?
 - Tipos em lib/schemas.ts?
 - Logica de negocio em lib/?
-- Auth via lib/api-auth.ts (nao boilerplate manual)?
+- Auth via lib/api-auth.ts (nao boilerplate manual)? Paginas admin-only com <AdminGuard>?
 - force-dynamic na API route?
 - Dedup preservada se tocou no upload?
 - Log gerado se tocou em status de conciliacao?
@@ -41,5 +41,5 @@ Leia ARCHITECTURE.md antes de qualquer tarefa.
 - CSV da Clara usa datas ISO (YYYY-MM-DD) e ponto decimal (2000.0).
 - Dedup: UNIQUE(transaction_date, auth_code, amount_brl) para autorizadas. Sem dedup para recusadas.
 - Status de conciliacao: Pendente | Conciliado | N/A | Recorrente.
-- Perfis: admin (acesso total) | holder (so ve o proprio card_alias).
+- Perfis: admin (acesso total) | holder (so ve o proprio card_alias) | viewer (le tudo, nao altera nada).
 - Dashboard: KPIs + ranking (sem graficos). Tom descontraido.

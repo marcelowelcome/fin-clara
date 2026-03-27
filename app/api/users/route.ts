@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { createServiceRoleClient } from '@/lib/supabase-server'
-import type { ApiResponse } from '@/lib/schemas'
+import { UserRole, type ApiResponse } from '@/lib/schemas'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +62,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<UserRecord[]>>> {
 // POST — create new user
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ id: string }>>> {
   try {
-    const [auth, error] = await requireAdmin()
+    const [, error] = await requireAdmin()
     if (error) return error
 
     const { email, password, role } = await request.json()
@@ -77,6 +77,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     if (password.length < 6) {
       return NextResponse.json(
         { data: null, error: { message: 'Senha deve ter no minimo 6 caracteres', code: 'VALIDATION' } },
+        { status: 400 }
+      )
+    }
+
+    const validRole = UserRole.safeParse(role)
+    if (!validRole.success) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Perfil invalido', code: 'VALIDATION' } },
         { status: 400 }
       )
     }
@@ -97,11 +105,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       )
     }
 
-    // Update profile role if admin
-    if (role === 'admin' && newUser.user) {
+    // Update profile role (trigger creates with default; update to chosen role)
+    if (newUser.user && validRole.data !== 'viewer') {
       await adminClient
         .from('profiles')
-        .update({ role: 'admin' })
+        .update({ role: validRole.data })
         .eq('id', newUser.user.id)
     }
 
@@ -134,8 +142,16 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
       )
     }
 
+    const validRole = UserRole.safeParse(role)
+    if (!validRole.success) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Perfil invalido', code: 'VALIDATION' } },
+        { status: 400 }
+      )
+    }
+
     // Prevent removing own admin
-    if (userId === currentUserId && role !== 'admin') {
+    if (userId === currentUserId && validRole.data !== 'admin') {
       return NextResponse.json(
         { data: null, error: { message: 'Voce nao pode remover seu proprio acesso admin', code: 'SELF_DEMOTE' } },
         { status: 400 }
@@ -145,7 +161,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
     const adminClient = await createServiceRoleClient()
     const { error: dbError } = await adminClient
       .from('profiles')
-      .update({ role })
+      .update({ role: validRole.data })
       .eq('id', userId)
 
     if (dbError) {

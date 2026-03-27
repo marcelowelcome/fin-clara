@@ -8,7 +8,7 @@ export type TransactionStatus = z.infer<typeof TransactionStatus>
 export const ReconciliationStatus = z.enum(['Pendente', 'Conciliado', 'N/A', 'Recorrente'])
 export type ReconciliationStatus = z.infer<typeof ReconciliationStatus>
 
-export const UserRole = z.enum(['admin', 'holder'])
+export const UserRole = z.enum(['admin', 'holder', 'viewer'])
 export type UserRole = z.infer<typeof UserRole>
 
 export const NotifyFrequency = z.enum(['daily', 'weekly', 'on_demand'])

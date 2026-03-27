@@ -68,10 +68,11 @@ fin-clara/
 │   │   ├── UserForm.tsx              # Criar usuario (email, senha, perfil)
 │   │   └── UserList.tsx              # Listagem + trocar perfil + exclusao dupla
 │   ├── Sidebar.tsx                   # Navegacao lateral recolhivel
+│   ├── AdminGuard.tsx                # Guard component para paginas admin-only
 │   └── ui/                           # shadcn/ui (componentes primitivos)
 │
 ├── lib/
-│   ├── api-auth.ts                   # Helper de auth: authenticateRequest(), requireAdmin()
+│   ├── api-auth.ts                   # Helper de auth: authenticateRequest(), requireAdmin(), requireWriteAccess()
 │   ├── csv-parser.ts                 # Parser CSV (ISO-8859-1 → UTF-8) + mapeamento de campos
 │   ├── dedup.ts                      # Deduplicacao por auth_code (somente autorizadas)
 │   ├── recurrence.ts                 # Deteccao de padroes recorrentes (batch)
@@ -80,12 +81,15 @@ fin-clara/
 │   ├── supabase.ts                   # Cliente browser (createBrowserClient)
 │   ├── supabase-server.ts            # Cliente server-side (cookies) + service role
 │   ├── schemas.ts                    # Tipos TypeScript + Zod schemas + maquina de estados
+│   ├── role-context.tsx              # React context para role do usuario (client-side gating)
 │   └── utils.ts                      # Formatadores pt-BR (moeda, data, datetime)
 │
 ├── supabase/
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql    # Todas as tabelas + trigger de profile
-│   │   └── 002_rls_policies.sql      # RLS para todas as tabelas
+│   │   ├── 002_rls_policies.sql      # RLS para todas as tabelas
+│   │   ├── 003_add_viewer_role.sql   # Adiciona 'viewer' ao enum (rodar sozinho)
+│   │   └── 004_viewer_policies.sql  # Trigger + RLS policies para viewer
 │   └── seed.sql                      # Instrucoes para seed
 │
 ├── middleware.ts                      # Refresh de sessao + redirect para /login
@@ -119,7 +123,7 @@ fin-clara/
 ### Tabelas
 
 ```
-profiles              — Perfis de usuario (admin/holder), criado automaticamente via trigger
+profiles              — Perfis de usuario (admin/holder/viewer), criado automaticamente via trigger
 transactions          — Tabela central: uma linha por transacao do CSV
 uploads               — Log de cada arquivo importado (com cascade delete)
 reconciliations       — Status de conciliacao por transacao (1:1)
@@ -139,10 +143,19 @@ Recusadas/Pendentes         → Sem dedup (cada linha do CSV e um evento distint
 
 ### RLS (Row Level Security)
 
-- `admin`: acesso total a todas as tabelas
+- `admin`: acesso total (leitura e escrita) a todas as tabelas
 - `holder`: le apenas `transactions` e `reconciliations` onde `card_alias` corresponde ao seu cadastro
-- Policies definidas em `supabase/migrations/002_rls_policies.sql`
+- `viewer`: leitura total a todas as tabelas, sem permissao de escrita
+- Policies definidas em `supabase/migrations/002_rls_policies.sql` e `003_add_viewer_role.sql`
 - Helper functions: `is_admin()`, `my_card_aliases()`
+
+### Perfis de Acesso
+
+| Perfil | Dashboard | Transacoes | Upload | Titulares | Recorrencias | Usuarios | Conciliacao |
+|--------|-----------|------------|--------|-----------|--------------|----------|-------------|
+| `admin` | Leitura | Leitura + Conciliar | Upload + Excluir | CRUD + Notificar | Detectar + Toggle | CRUD | Individual + Lote |
+| `holder` | Leitura | Leitura (proprio) | — | — | — | — | — |
+| `viewer` | Leitura | Leitura (todos) | — | — | — | — | — |
 
 ---
 
@@ -189,7 +202,7 @@ NEXT_PUBLIC_APP_URL=https://fin-clara.vercel.app
 
 ## Convencoes de Codigo
 
-- **Auth em API routes**: usar `authenticateRequest()` ou `requireAdmin()` de `lib/api-auth.ts` — nunca repetir boilerplate
+- **Auth em API routes**: usar `authenticateRequest()`, `requireAdmin()` ou `requireWriteAccess()` de `lib/api-auth.ts` — nunca repetir boilerplate
 - **Dynamic routes**: toda API route DEVE ter `export const dynamic = 'force-dynamic'`
 - **Tipos**: todos os tipos de dados em `lib/schemas.ts` (TypeScript + Zod)
 - **Queries Supabase**: sempre via `lib/supabase.ts` (browser) ou `lib/supabase-server.ts` (server)

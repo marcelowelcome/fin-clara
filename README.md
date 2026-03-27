@@ -11,8 +11,8 @@ Plataforma de gestao e conciliacao de lancamentos do cartao corporativo Clara pa
 - **Notificacoes por e-mail** (manual, individual ou em massa) via Resend
 - **Deteccao de recorrencias** (Google Ads, Facebook Ads, etc.) com gestao de padroes
 - **Dashboard** com KPIs e ranking de conciliacao por titular
-- **Gestao de usuarios** com perfis admin/titular e dupla validacao para exclusao
-- **Autenticacao** via Supabase Auth com Row Level Security
+- **Gestao de usuarios** com perfis admin/titular/visualizador e dupla validacao para exclusao
+- **Autenticacao** via Supabase Auth com Row Level Security e controle de acesso por perfil
 
 ## Stack
 
@@ -31,6 +31,8 @@ cp .env.local.example .env.local
 # Executar migrations no Supabase SQL Editor:
 # 1. supabase/migrations/001_initial_schema.sql
 # 2. supabase/migrations/002_rls_policies.sql
+# 3. supabase/migrations/003_add_viewer_role.sql  (rodar sozinho primeiro!)
+# 4. supabase/migrations/004_viewer_policies.sql  (rodar depois do 003)
 
 # Criar usuario admin:
 # 1. Supabase Dashboard → Authentication → Users → Add user

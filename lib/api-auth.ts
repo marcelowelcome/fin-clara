@@ -6,7 +6,7 @@ import type { ApiResponse } from '@/lib/schemas'
 type AuthResult = {
   supabase: SupabaseClient
   userId: string
-  role: 'admin' | 'holder'
+  role: 'admin' | 'holder' | 'viewer'
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,7 +36,7 @@ export async function authenticateRequest(): Promise<[AuthResult, null] | [null,
   return [{
     supabase,
     userId: user.id,
-    role: (profile?.role as 'admin' | 'holder') || 'holder',
+    role: (profile?.role as 'admin' | 'holder' | 'viewer') || 'viewer',
   }, null]
 }
 
@@ -50,6 +50,23 @@ export async function requireAdmin(): Promise<[AuthResult, null] | [null, AuthEr
   if (auth.role !== 'admin') {
     return [null, NextResponse.json(
       { data: null, error: { message: 'Acesso restrito a administradores', code: 'FORBIDDEN' } },
+      { status: 403 }
+    )]
+  }
+
+  return [auth, null]
+}
+
+/**
+ * Authenticate and require write access (admin or holder — blocks viewer).
+ */
+export async function requireWriteAccess(): Promise<[AuthResult, null] | [null, AuthError]> {
+  const [auth, error] = await authenticateRequest()
+  if (error) return [null, error]
+
+  if (auth.role === 'viewer') {
+    return [null, NextResponse.json(
+      { data: null, error: { message: 'Acesso somente leitura', code: 'FORBIDDEN' } },
       { status: 403 }
     )]
   }

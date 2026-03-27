@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AdminGuard } from '@/components/AdminGuard'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -95,6 +96,7 @@ export default function RecurrencePage() {
   }
 
   return (
+    <AdminGuard>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -170,5 +172,6 @@ export default function RecurrencePage() {
         </div>
       )}
     </div>
+    </AdminGuard>
   )
 }

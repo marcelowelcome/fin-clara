@@ -45,11 +45,16 @@ Usar Zod para validacao de inputs de API.
 Toda API route DEVE usar o helper de autenticacao:
 
 ```typescript
-// Para rotas que qualquer usuario autenticado pode acessar:
+// Para rotas que qualquer usuario autenticado pode acessar (leitura):
 import { authenticateRequest } from '@/lib/api-auth'
 const [auth, error] = await authenticateRequest()
 if (error) return error
 const { supabase, userId, role } = auth
+
+// Para rotas que exigem escrita (bloqueia viewer):
+import { requireWriteAccess } from '@/lib/api-auth'
+const [auth, error] = await requireWriteAccess()
+if (error) return error
 
 // Para rotas admin-only:
 import { requireAdmin } from '@/lib/api-auth'
@@ -57,6 +62,9 @@ const [auth, error] = await requireAdmin()
 if (error) return error
 const { supabase, userId } = auth
 ```
+
+**Perfis disponíveis**: `admin` (acesso total), `holder` (le proprias transacoes), `viewer` (leitura total, sem escrita).
+Paginas admin-only devem usar `<AdminGuard>` de `components/AdminGuard.tsx`.
 
 **NUNCA** repetir o boilerplate de auth/admin check manualmente. **NUNCA** instanciar `createServerSupabaseClient()` diretamente nas routes.
 
@@ -170,7 +178,8 @@ Batch inserts e updates sempre que possivel.
 - [ ] O arquivo esta no diretorio correto conforme `ARCHITECTURE.md`?
 - [ ] Novos tipos foram adicionados a `lib/schemas.ts`?
 - [ ] A logica de negocio esta em `lib/`, nao no componente ou na route?
-- [ ] Auth usa `authenticateRequest()` ou `requireAdmin()` de `lib/api-auth.ts`?
+- [ ] Auth usa `authenticateRequest()`, `requireAdmin()` ou `requireWriteAccess()` de `lib/api-auth.ts`?
+- [ ] Paginas admin-only estao envolvidas com `<AdminGuard>`?
 - [ ] Se alterou fluxo de upload, a dedup foi preservada?
 - [ ] Se alterou status de conciliacao, o log foi registrado?
 - [ ] Valores e datas estao formatados em pt-BR na UI?

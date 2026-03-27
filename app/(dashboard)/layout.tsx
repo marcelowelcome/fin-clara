@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { Sidebar } from '@/components/Sidebar'
+import { RoleProvider } from '@/lib/role-context'
 import type { UserRole } from '@/lib/schemas'
 
 export default async function DashboardLayout({
@@ -19,13 +20,15 @@ export default async function DashboardLayout({
     .eq('id', user.id)
     .single()
 
-  const role: UserRole = profile?.role ?? 'holder'
+  const role: UserRole = profile?.role ?? 'viewer'
 
   return (
     <div className="flex min-h-screen">
       <Sidebar role={role} userEmail={user.email ?? ''} />
       <main className="flex-1 overflow-auto p-6">
-        {children}
+        <RoleProvider role={role}>
+          {children}
+        </RoleProvider>
       </main>
     </div>
   )

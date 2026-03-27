@@ -20,7 +20,7 @@ A aplicacao substitui esse processo com: upload periodico do CSV → preview →
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
 - **Backend**: Next.js API Routes com `lib/api-auth.ts` para autenticacao
 - **Banco**: Supabase (PostgreSQL) com Row Level Security
-- **Auth**: Supabase Auth (admin + holder)
+- **Auth**: Supabase Auth (admin + holder + viewer)
 - **E-mail**: Resend API (lazy-initialized)
 - **Deploy**: Vercel (auto-deploy on push to main)
 - **Repo**: https://github.com/marcelowelcome/fin-clara
@@ -40,15 +40,15 @@ O projeto tem 9 modulos. Cada modulo tem responsabilidade unica:
 | M5 — Notificacoes | Envia digest de pendencias (individual ou em massa) | `api/notify/`, `lib/notify.ts` |
 | M6 — Recorrencias | Detecta padroes, gestao com ativar/desativar | `api/recurrence/`, `lib/recurrence.ts` |
 | M7 — Dashboard | KPIs com barras, ranking por titular com medalhas | `dashboard/page.tsx`, `components/Dashboard/` |
-| M8 — Auth | Login, perfis admin/titular, RLS, middleware | `app/(auth)/`, `middleware.ts` |
-| M9 — Usuarios | CRUD de usuarios, troca de perfil, exclusao com dupla validacao | `api/users/`, `components/Users/` |
+| M8 — Auth | Login, perfis admin/titular/viewer, RLS, middleware | `app/(auth)/`, `middleware.ts` |
+| M9 — Usuarios | CRUD de usuarios, troca de perfil (admin/titular/visualizador), exclusao com dupla validacao | `api/users/`, `components/Users/` |
 
 ---
 
 ## Banco de dados — tabelas principais
 
 ```sql
-profiles              -- Perfis (admin/holder), auto-criado via trigger
+profiles              -- Perfis (admin/holder/viewer), auto-criado via trigger (default: viewer)
 transactions          -- Tabela central: uma linha por transacao do CSV
 uploads               -- Log de cada importacao (cascade delete)
 reconciliations       -- Status de conciliacao por transacao (1:1)
@@ -83,7 +83,7 @@ Recusadas/Pendentes: SEM DEDUP — cada linha do CSV e um evento distinto
 
 ## Convencoes tecnicas obrigatorias
 
-1. **Auth**: usar `authenticateRequest()` ou `requireAdmin()` de `lib/api-auth.ts`
+1. **Auth**: usar `authenticateRequest()`, `requireAdmin()` ou `requireWriteAccess()` de `lib/api-auth.ts`
 2. **Dynamic**: toda API route DEVE ter `export const dynamic = 'force-dynamic'`
 3. **Tipos**: todos em `lib/schemas.ts` (Zod + TypeScript)
 4. **Supabase**: browser via `lib/supabase.ts`, server via auth helper
@@ -102,6 +102,7 @@ Recusadas/Pendentes: SEM DEDUP — cada linha do CSV e um evento distinto
 - O CSV da Clara usa **datas ISO** (YYYY-MM-DD) e **ponto decimal** (2000.0)
 - Transacoes **recusadas** nao exigem conciliacao (status automatico `N/A`)
 - Dashboard sem graficos — foco em KPIs + ranking de conciliacao por titular
+- Tres perfis de acesso: **admin** (acesso total), **titular/holder** (le apenas proprias transacoes), **visualizador/viewer** (le tudo, nao altera nada)
 
 ---
 

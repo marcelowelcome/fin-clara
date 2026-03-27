@@ -29,13 +29,13 @@ type UserFormProps = {
 export function UserForm({ open, onClose, onSaved }: UserFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('holder')
+  const [role, setRole] = useState('viewer')
   const [loading, setLoading] = useState(false)
 
   function reset() {
     setEmail('')
     setPassword('')
-    setRole('holder')
+    setRole('viewer')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,6 +102,7 @@ export function UserForm({ open, onClose, onSaved }: UserFormProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="viewer">Visualizador</SelectItem>
                 <SelectItem value="holder">Titular</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>

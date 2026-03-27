@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { HolderList } from '@/components/Holders/HolderList'
 import { HolderForm } from '@/components/Holders/HolderForm'
+import { AdminGuard } from '@/components/AdminGuard'
 import { toast } from 'sonner'
 import type { Holder } from '@/lib/schemas'
 
@@ -79,6 +80,7 @@ export default function HoldersPage() {
   }
 
   return (
+    <AdminGuard>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -104,5 +106,6 @@ export default function HoldersPage() {
         onSaved={handleSaved}
       />
     </div>
+    </AdminGuard>
   )
 }

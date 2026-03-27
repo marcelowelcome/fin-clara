@@ -143,6 +143,9 @@ export function UserList({ refreshKey }: { refreshKey: number }) {
                       <SelectItem value="holder">
                         <Badge variant="secondary">Titular</Badge>
                       </SelectItem>
+                      <SelectItem value="viewer">
+                        <Badge variant="outline">Visualizador</Badge>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { UploadZone } from '@/components/Upload/UploadZone'
 import { UploadSummary } from '@/components/Upload/UploadSummary'
 import { UploadHistory } from '@/components/Upload/UploadHistory'
+import { AdminGuard } from '@/components/AdminGuard'
 import { toast } from 'sonner'
 
 type UploadResult = {
@@ -51,6 +52,7 @@ export default function UploadPage() {
   }
 
   return (
+    <AdminGuard>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Upload CSV</h1>
@@ -75,5 +77,6 @@ export default function UploadPage() {
 
       <UploadHistory refreshKey={refreshKey} />
     </div>
+    </AdminGuard>
   )
 }

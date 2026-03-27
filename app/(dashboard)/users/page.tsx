@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { UserList } from '@/components/Users/UserList'
 import { UserForm } from '@/components/Users/UserForm'
+import { AdminGuard } from '@/components/AdminGuard'
 
 export default function UsersPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   return (
+    <AdminGuard>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -29,5 +31,6 @@ export default function UsersPage() {
         onSaved={() => setRefreshKey((k) => k + 1)}
       />
     </div>
+    </AdminGuard>
   )
 }

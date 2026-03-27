@@ -80,11 +80,25 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
     const { supabase } = auth
 
     const body = await request.json()
-    const { id, ...fields } = body
+    const { id, ...rawFields } = body
 
     if (!id) {
       return NextResponse.json(
         { data: null, error: { message: 'ID obrigatorio', code: 'VALIDATION' } },
+        { status: 400 }
+      )
+    }
+
+    // Only allow known holder fields (prevent mass assignment)
+    const allowedKeys = ['name', 'card_alias', 'card_last4', 'email', 'notify_enabled', 'notify_frequency', 'user_id'] as const
+    const fields: Record<string, unknown> = {}
+    for (const key of allowedKeys) {
+      if (key in rawFields) fields[key] = rawFields[key]
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return NextResponse.json(
+        { data: null, error: { message: 'Nenhum campo para atualizar', code: 'VALIDATION' } },
         { status: 400 }
       )
     }
