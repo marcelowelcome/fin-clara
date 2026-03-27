@@ -30,17 +30,20 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+  const pathname = request.nextUrl.pathname
+  const isPublicRoute = ['/login', '/forgot-password', '/reset-password', '/auth/confirm'].some(
+    (path) => pathname.startsWith(path)
+  )
 
   // Redirect unauthenticated users to login
-  if (!user && !isAuthRoute) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from login
-  if (user && isAuthRoute) {
+  // Redirect authenticated users away from login/forgot-password (but NOT reset-password)
+  if (user && isPublicRoute && !pathname.startsWith('/reset-password') && !pathname.startsWith('/auth/confirm')) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

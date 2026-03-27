@@ -84,9 +84,19 @@ export function Sidebar({ role, userEmail }: { role: UserRole; userEmail: string
       </nav>
 
       <div className="border-t p-2">
-        {!collapsed && (
-          <p className="mb-2 truncate px-1 text-xs text-muted-foreground">{userEmail}</p>
-        )}
+        <Link
+          href="/profile"
+          title="Meu Perfil"
+          className={cn(
+            'mb-2 flex items-center rounded-md px-1 py-1 text-xs transition-colors',
+            collapsed && 'justify-center',
+            pathname === '/profile'
+              ? 'text-sidebar-accent-foreground font-medium'
+              : 'text-muted-foreground hover:text-sidebar-accent-foreground'
+          )}
+        >
+          {collapsed ? 'P' : userEmail}
+        </Link>
         <Button
           variant="outline"
           size="sm"

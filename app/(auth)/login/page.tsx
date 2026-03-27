@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,11 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+          </div>
+          <div className="flex justify-end">
+            <Link href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
+              Esqueci minha senha
+            </Link>
           </div>
           {error && (
             <p className="text-sm text-destructive">{error}</p>
