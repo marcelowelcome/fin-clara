@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { UserList } from '@/components/Users/UserList'
 import { UserForm } from '@/components/Users/UserForm'
+import { PermissionsMatrix } from '@/components/Users/PermissionsMatrix'
 import { AdminGuard } from '@/components/AdminGuard'
 
 export default function UsersPage() {
@@ -22,6 +23,8 @@ export default function UsersPage() {
         </div>
         <Button onClick={() => setFormOpen(true)}>Novo Usuario</Button>
       </div>
+
+      <PermissionsMatrix />
 
       <UserList refreshKey={refreshKey} />
 
