@@ -154,15 +154,21 @@ export async function detectRecurrencePatterns(
     await supabase.from('reconciliation_log').insert(logs)
   }
 
-  // Update recurrence_pattern_id individually (different per pattern)
+  // Batch update recurrence_pattern_id grouped by pattern
+  const reconsByPattern = new Map<string, string[]>()
   for (const recon of allRecons) {
     const patternId = txPatternMap.get(recon.transaction_id)
     if (patternId) {
-      await supabase
-        .from('reconciliations')
-        .update({ recurrence_pattern_id: patternId })
-        .eq('id', recon.id)
+      const ids = reconsByPattern.get(patternId) || []
+      ids.push(recon.id)
+      reconsByPattern.set(patternId, ids)
     }
+  }
+  for (const [patternId, ids] of reconsByPattern) {
+    await supabase
+      .from('reconciliations')
+      .update({ recurrence_pattern_id: patternId })
+      .in('id', ids)
   }
 
   return { patternsCreated, transactionsMarked: allRecons.length }

@@ -6,6 +6,10 @@ function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 type PendingTransaction = {
   transaction_date: string
   merchant_name: string
@@ -96,7 +100,7 @@ export async function sendNotification(notification: HolderNotification): Promis
       (t) =>
         `<tr>
           <td style="padding:8px;border-bottom:1px solid #eee">${formatDate(t.transaction_date)}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee">${t.merchant_name}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee">${escapeHtml(t.merchant_name)}</td>
           <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${formatCurrency(t.amount_brl)}</td>
         </tr>`
     )
@@ -104,7 +108,7 @@ export async function sendNotification(notification: HolderNotification): Promis
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-      <h2>Ola, ${notification.holderName}!</h2>
+      <h2>Ola, ${escapeHtml(notification.holderName)}!</h2>
       <p>Voce tem <strong>${notification.pendingCount} transacao(es)</strong> pendentes de conciliacao,
          totalizando <strong>${formatCurrency(totalPending)}</strong>.</p>
 

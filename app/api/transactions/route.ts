@@ -60,7 +60,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       query = query.eq('category', category)
     }
     if (search) {
-      query = query.ilike('merchant_name', `%${search}%`)
+      // Escape SQL LIKE wildcards to prevent pattern injection
+      const escaped = search.replace(/[%_\\]/g, '\\$&')
+      query = query.ilike('merchant_name', `%${escaped}%`)
     }
 
     // Apply sorting and pagination

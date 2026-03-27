@@ -44,7 +44,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<UserRecord[]>>> {
       return {
         id: u.id,
         email: u.email ?? '',
-        role: p?.role ?? 'holder',
+        role: p?.role ?? 'viewer',
         created_at: u.created_at,
       }
     })
@@ -189,9 +189,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     const { userId: currentUserId } = auth
 
     const targetUserId = request.nextUrl.searchParams.get('id')
-    if (!targetUserId) {
+    if (!targetUserId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
       return NextResponse.json(
-        { data: null, error: { message: 'ID obrigatorio', code: 'VALIDATION' } },
+        { data: null, error: { message: 'ID invalido', code: 'VALIDATION' } },
         { status: 400 }
       )
     }

@@ -137,9 +137,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     const { searchParams } = request.nextUrl
     const id = searchParams.get('id')
 
-    if (!id) {
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       return NextResponse.json(
-        { data: null, error: { message: 'ID obrigatorio', code: 'VALIDATION' } },
+        { data: null, error: { message: 'ID invalido', code: 'VALIDATION' } },
         { status: 400 }
       )
     }

@@ -53,9 +53,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     const supabase = await createServiceRoleClient()
 
     const uploadId = request.nextUrl.searchParams.get('id')
-    if (!uploadId) {
+    if (!uploadId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uploadId)) {
       return NextResponse.json(
-        { data: null, error: { message: 'ID do upload obrigatorio', code: 'VALIDATION' } },
+        { data: null, error: { message: 'ID do upload invalido', code: 'VALIDATION' } },
         { status: 400 }
       )
     }
