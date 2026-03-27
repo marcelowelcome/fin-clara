@@ -18,7 +18,7 @@ const PERMISSIONS = [
   { module: 'Transacoes', admin: 'Leitura + Conciliar', holder: 'Leitura (proprio)', viewer: 'Leitura (todos)' },
   { module: 'Upload CSV', admin: 'Upload + Excluir', holder: '—', viewer: '—' },
   { module: 'Titulares', admin: 'CRUD + Notificar', holder: '—', viewer: '—' },
-  { module: 'Recorrencias', admin: 'Detectar + Toggle', holder: '—', viewer: '—' },
+  { module: 'Recorrencias', admin: 'Detectar + Toggle', holder: 'Leitura', viewer: 'Leitura' },
   { module: 'Usuarios', admin: 'CRUD', holder: '—', viewer: '—' },
 ] as const
 

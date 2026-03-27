@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AdminGuard } from '@/components/AdminGuard'
+import { useRole } from '@/lib/role-context'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -28,6 +28,8 @@ type Pattern = {
 }
 
 export default function RecurrencePage() {
+  const role = useRole()
+  const isAdmin = role === 'admin'
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [loading, setLoading] = useState(true)
   const [detecting, setDetecting] = useState(false)
@@ -96,7 +98,6 @@ export default function RecurrencePage() {
   }
 
   return (
-    <AdminGuard>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -105,9 +106,11 @@ export default function RecurrencePage() {
             Padroes de transacoes recorrentes e parcelamentos
           </p>
         </div>
-        <Button onClick={handleDetect} disabled={detecting}>
-          {detecting ? 'Detectando...' : 'Detectar recorrencias'}
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleDetect} disabled={detecting}>
+            {detecting ? 'Detectando...' : 'Detectar recorrencias'}
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -130,7 +133,8 @@ export default function RecurrencePage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">
-              Nenhum padrao de recorrencia detectado ainda. Clique em &quot;Detectar recorrencias&quot; para analisar.
+              Nenhum padrao de recorrencia detectado ainda.
+              {isAdmin && ' Clique em "Detectar recorrencias" para analisar.'}
             </p>
           </CardContent>
         </Card>
@@ -143,7 +147,7 @@ export default function RecurrencePage() {
                 <TableHead className="text-right">Valor medio</TableHead>
                 <TableHead className="text-right">Tolerancia</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-24">Ativo</TableHead>
+                {isAdmin && <TableHead className="w-24">Ativo</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,12 +163,14 @@ export default function RecurrencePage() {
                       {p.active ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={p.active}
-                      onCheckedChange={(checked) => handleToggle(p.id, checked)}
-                    />
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <Switch
+                        checked={p.active}
+                        onCheckedChange={(checked) => handleToggle(p.id, checked)}
+                      />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -172,6 +178,5 @@ export default function RecurrencePage() {
         </div>
       )}
     </div>
-    </AdminGuard>
   )
 }
