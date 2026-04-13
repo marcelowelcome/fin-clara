@@ -28,31 +28,33 @@ export async function dedup(
   }
 
   if (authorizedIndexes.length > 0) {
-    // Step 1: Intra-file dedup (same auth_code within same CSV)
-    const seenAuthCodes = new Set<string>()
+    // Step 1: Intra-file dedup (same transaction within same CSV)
+    // Key includes merchant_name to distinguish installments (parcelas)
+    // that share the same auth_code, date, and amount
+    const seenKeys = new Set<string>()
     for (const i of authorizedIndexes) {
-      const key = `${rows[i].transaction_date}|${rows[i].auth_code}|${rows[i].amount_brl}`
-      if (seenAuthCodes.has(key)) {
+      const key = `${rows[i].transaction_date}|${rows[i].auth_code}|${rows[i].amount_brl}|${rows[i].merchant_name}`
+      if (seenKeys.has(key)) {
         duplicateSet.add(i)
       } else {
-        seenAuthCodes.add(key)
+        seenKeys.add(key)
       }
     }
 
     // Step 2: Check against existing DB records
     const { data: existing } = await supabase
       .from('transactions')
-      .select('transaction_date, auth_code, amount_brl')
+      .select('transaction_date, auth_code, amount_brl, merchant_name')
       .not('auth_code', 'is', null)
 
     if (existing) {
       const existingKeys = new Set(
-        existing.map((e) => `${e.transaction_date}|${e.auth_code}|${e.amount_brl}`)
+        existing.map((e) => `${e.transaction_date}|${e.auth_code}|${e.amount_brl}|${e.merchant_name}`)
       )
 
       for (const i of authorizedIndexes) {
         if (duplicateSet.has(i)) continue
-        const key = `${rows[i].transaction_date}|${rows[i].auth_code}|${rows[i].amount_brl}`
+        const key = `${rows[i].transaction_date}|${rows[i].auth_code}|${rows[i].amount_brl}|${rows[i].merchant_name}`
         if (existingKeys.has(key)) {
           duplicateSet.add(i)
         }
