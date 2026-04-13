@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/api-auth'
+import { authenticateRequest } from '@/lib/api-auth'
 import {
   ReconcileActionSchema,
   BulkReconcileActionSchema,
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 // PATCH — single transaction reconciliation
 export async function PATCH(request: NextRequest): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const [auth, error] = await requireAdmin()
+    const [auth, error] = await authenticateRequest()
     if (error) return error
     const { supabase, userId } = auth
 
@@ -106,7 +106,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ApiRespo
 // POST — bulk reconciliation
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ updated: number }>>> {
   try {
-    const [auth, error] = await requireAdmin()
+    const [auth, error] = await authenticateRequest()
     if (error) return error
     const { supabase, userId } = auth
 

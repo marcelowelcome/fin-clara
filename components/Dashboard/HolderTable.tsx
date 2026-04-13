@@ -123,7 +123,7 @@ export function HolderTable({ data }: { data: HolderSpend[] }) {
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/transactions?card_alias=${encodeURIComponent(h.card_alias)}`}
+                      href={`/transactions?holder_name=${encodeURIComponent(h.holder_name)}`}
                       className="text-sm text-primary hover:underline"
                     >
                       Ver transacoes
