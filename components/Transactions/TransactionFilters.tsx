@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 
 type FilterOptions = {
   billingPeriods: string[]
-  cardAliases: string[]
+  holderNames: string[]
   categories: string[]
 }
 
@@ -23,7 +23,7 @@ export function TransactionFilters() {
   const searchParams = useSearchParams()
   const [options, setOptions] = useState<FilterOptions>({
     billingPeriods: [],
-    cardAliases: [],
+    holderNames: [],
     categories: [],
   })
 
@@ -77,15 +77,15 @@ export function TransactionFilters() {
       <div className="w-48">
         <label className="mb-1 block text-xs text-muted-foreground">Titular</label>
         <Select
-          value={searchParams.get('card_alias') ?? 'all'}
-          onValueChange={(v) => updateParam('card_alias', v)}
+          value={searchParams.get('holder_name') ?? 'all'}
+          onValueChange={(v) => updateParam('holder_name', v)}
         >
           <SelectTrigger>
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {options.cardAliases.map((a) => (
+            {options.holderNames.map((a) => (
               <SelectItem key={a} value={a}>{a}</SelectItem>
             ))}
           </SelectContent>

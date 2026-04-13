@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 type FilterOptions = {
   billingPeriods: string[]
-  cardAliases: string[]
+  holderNames: string[]
   categories: string[]
 }
 
@@ -18,19 +18,18 @@ export async function GET(): Promise<NextResponse<ApiResponse<FilterOptions>>> {
 
     // Use separate lightweight queries — holders and billing_periods are low cardinality
     const [periods, holders, categories] = await Promise.all([
-      // billing_period from transactions (limited set)
       supabase
         .from('transactions')
         .select('billing_period')
         .not('billing_period', 'eq', '')
         .order('billing_period', { ascending: false })
         .limit(500),
-      // card_alias from holders table (much smaller than transactions)
       supabase
-        .from('holders')
-        .select('card_alias')
-        .order('card_alias'),
-      // categories — limited set
+        .from('transactions')
+        .select('holder_name')
+        .not('holder_name', 'is', null)
+        .order('holder_name')
+        .limit(500),
       supabase
         .from('transactions')
         .select('category')
@@ -47,7 +46,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<FilterOptions>>> {
     return NextResponse.json({
       data: {
         billingPeriods: unique(periods.data, 'billing_period'),
-        cardAliases: unique(holders.data, 'card_alias'),
+        holderNames: unique(holders.data, 'holder_name'),
         categories: unique(categories.data, 'category'),
       },
       error: null,

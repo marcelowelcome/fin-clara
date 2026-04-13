@@ -21,7 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
     const billingPeriod = searchParams.get('billing_period')
-    const cardAlias = searchParams.get('card_alias')
+    const holderName = searchParams.get('holder_name')
     const status = searchParams.get('status')
     const reconciliationStatus = searchParams.get('reconciliation_status')
     const category = searchParams.get('category')
@@ -47,8 +47,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     if (billingPeriod) {
       query = query.eq('billing_period', billingPeriod)
     }
-    if (cardAlias) {
-      query = query.eq('card_alias', cardAlias)
+    if (holderName) {
+      query = query.eq('holder_name', holderName)
     }
     if (status) {
       query = query.eq('status', status)
