@@ -85,9 +85,35 @@ export type ParseResult = {
   totalLines: number
 }
 
+/**
+ * Strip the last CSV column (Descrição) before parsing.
+ * This field is not used and often contains unescaped quotes
+ * that break PapaParse, causing subsequent rows to be lost.
+ */
+function stripLastColumn(text: string): string {
+  const lines = text.split(/\r?\n/)
+  return lines
+    .map((line) => {
+      if (!line.trim()) return line
+      let fields = 0
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+          inQuotes = !inQuotes
+        } else if (line[i] === ',' && !inQuotes) {
+          fields++
+          if (fields === 20) return line.substring(0, i)
+        }
+      }
+      return line
+    })
+    .join('\n')
+}
+
 export function parseCSV(buffer: ArrayBuffer): ParseResult {
   // Decode ISO-8859-1 to UTF-8 string
-  const text = new TextDecoder('iso-8859-1').decode(buffer)
+  let text = new TextDecoder('iso-8859-1').decode(buffer)
+  text = stripLastColumn(text)
 
   const { data, errors } = Papa.parse<RawCsvRow>(text, {
     header: true,
